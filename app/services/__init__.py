@@ -26,12 +26,10 @@ __all__ = [
     "create_access_token",
     "decode_token",
     "authenticate_user",
-    
     # Google Auth
     "GoogleAuthError",
     "verify_google_token",
     "get_or_create_google_user",
-    
     # Activity
     "log_activity",
 ]

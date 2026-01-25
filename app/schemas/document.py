@@ -16,6 +16,7 @@ class DocumentBase(BaseModel):
     """
     Base schema with common document fields.
     """
+
     title: str
     category: str
     description: str | None = None
@@ -24,9 +25,9 @@ class DocumentBase(BaseModel):
 class DocumentCreate(DocumentBase):
     """
     Schema for creating a new document.
-    
+
     Request body for POST /api/v1/documents
-    
+
     Example:
     {
         "title": "Employee Handbook 2024",
@@ -36,9 +37,10 @@ class DocumentCreate(DocumentBase):
         "file_size": 2048576
     }
     """
+
     file_url: str
     file_size: int = 0
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -46,7 +48,7 @@ class DocumentCreate(DocumentBase):
                 "category": "Policies",
                 "description": "Complete guide for new employees",
                 "file_url": "https://storage.example.com/handbook.pdf",
-                "file_size": 2048576
+                "file_size": 2048576,
             }
         }
     }
@@ -55,7 +57,7 @@ class DocumentCreate(DocumentBase):
 class DocumentResponse(BaseModel):
     """
     Schema for document in API responses.
-    
+
     Example response:
     {
         "id": 1,
@@ -68,6 +70,7 @@ class DocumentResponse(BaseModel):
         "createdAt": "2024-01-15T10:30:00Z"
     }
     """
+
     id: int
     title: str
     category: str
@@ -76,11 +79,9 @@ class DocumentResponse(BaseModel):
     fileSize: int  # camelCase
     uploadedBy: int  # camelCase
     createdAt: datetime  # camelCase
-    
-    model_config = {
-        "from_attributes": True
-    }
-    
+
+    model_config = {"from_attributes": True}
+
     @classmethod
     def from_document(cls, doc) -> "DocumentResponse":
         """Create response from SQLAlchemy Document model."""
@@ -92,5 +93,5 @@ class DocumentResponse(BaseModel):
             fileUrl=doc.file_url,
             fileSize=doc.file_size,
             uploadedBy=doc.uploaded_by,
-            createdAt=doc.created_at
+            createdAt=doc.created_at,
         )

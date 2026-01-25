@@ -48,35 +48,29 @@ __all__ = [
     "GoogleAuthRequest",
     "Token",
     "TokenData",
-    
     # User
     "UserBase",
     "UserCreate",
     "UserUpdate",
     "UserResponse",
-    
     # Dashboard
     "DashboardStats",
     "ActivityItem",
-    
     # Schedule
     "ScheduleBase",
     "ScheduleCreate",
     "ScheduleUpdate",
     "ScheduleResponse",
-    
     # Document
     "DocumentBase",
     "DocumentCreate",
     "DocumentResponse",
-    
     # Poll
     "PollOptionInput",
     "PollOptionResponse",
     "PollCreate",
     "PollResponse",
     "VoteRequest",
-    
     # Notification
     "NotificationBase",
     "NotificationCreate",

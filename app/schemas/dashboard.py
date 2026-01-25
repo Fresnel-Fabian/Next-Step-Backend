@@ -14,9 +14,9 @@ from datetime import datetime
 class DashboardStats(BaseModel):
     """
     Dashboard statistics response.
-    
+
     Response for GET /api/v1/dashboard/stats
-    
+
     Example:
     {
         "totalStaff": 156,
@@ -26,6 +26,7 @@ class DashboardStats(BaseModel):
         "totalDocuments": 284
     }
     """
+
     totalStaff: int
     staffTrend: str  # e.g., "+12 this month"
     activeSchedules: int
@@ -36,9 +37,9 @@ class DashboardStats(BaseModel):
 class ActivityItem(BaseModel):
     """
     Single activity item for the activity feed.
-    
+
     Response item for GET /api/v1/dashboard/activity
-    
+
     Example:
     {
         "id": 1,
@@ -47,11 +48,10 @@ class ActivityItem(BaseModel):
         "timestamp": "2024-01-15T10:30:00Z"
     }
     """
+
     id: int
     title: str
     author: str
     timestamp: datetime
-    
-    model_config = {
-        "from_attributes": True  # Allow creating from SQLAlchemy model
-    }
+
+    model_config = {"from_attributes": True}  # Allow creating from SQLAlchemy model

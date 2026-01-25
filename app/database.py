@@ -19,16 +19,13 @@ settings = get_settings()
 # It manages a pool of database connections
 engine = create_async_engine(
     settings.database_url,
-    
     # Echo SQL queries to console (only in debug mode)
     # Helpful for learning what SQLAlchemy is doing
     echo=settings.debug,
-    
     # Connection Pool Settings
     # Pool = reusable connections (faster than creating new ones each time)
-    pool_size=20,        # Keep 20 connections ready
-    max_overflow=10,     # Can create 10 more if needed (total 30 max)
-    
+    pool_size=20,  # Keep 20 connections ready
+    max_overflow=10,  # Can create 10 more if needed (total 30 max)
     # Connection timeout
     pool_pre_ping=True,  # Check if connection is alive before using
 )
@@ -42,9 +39,10 @@ AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,  # Don't expire objects after commit
-    autocommit=False,        # We manually commit (safer)
-    autoflush=False,         # We manually flush (more control)
+    autocommit=False,  # We manually commit (safer)
+    autoflush=False,  # We manually flush (more control)
 )
+
 
 # ============================================
 # 3. Create Base Class for Models
@@ -53,13 +51,15 @@ AsyncSessionLocal = async_sessionmaker(
 class Base(DeclarativeBase):
     """
     Base class for all database models.
-    
+
     SQLAlchemy uses this to:
     - Track all models
     - Generate CREATE TABLE statements
     - Manage relationships between tables
     """
+
     pass
+
 
 # ============================================
 # 4. Dependency Injection for FastAPI
@@ -67,12 +67,12 @@ class Base(DeclarativeBase):
 async def get_db():
     """
     Dependency that provides a database session.
-    
+
     Usage in routes:
         @app.get("/users")
         async def get_users(db: AsyncSession = Depends(get_db)):
             # Use db here
-            
+
     Why this pattern?
     - Automatic session management
     - Always closes connection (even if error occurs)

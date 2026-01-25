@@ -18,11 +18,11 @@ from datetime import datetime
 class Document(Base):
     """
     Document database model.
-    
+
     Stores metadata about uploaded documents.
     The actual file is stored elsewhere (S3, local filesystem, etc.)
     and we store the URL reference here.
-    
+
     Example:
         Document(
             title="Employee Handbook 2024",
@@ -33,65 +33,47 @@ class Document(Base):
             uploaded_by=1
         )
     """
-    
+
     __tablename__ = "documents"
-    
+
     # ========== PRIMARY KEY ==========
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True
-    )
-    
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
     # ========== DOCUMENT INFO ==========
     # Document title
-    title: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False
-    )
-    
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+
     # Category for filtering
     # e.g., "Policies", "Forms", "Handbooks", "Reports"
     category: Mapped[str] = mapped_column(
-        String(100),
-        index=True,  # Fast filtering by category
-        nullable=False
+        String(100), index=True, nullable=False  # Fast filtering by category
     )
-    
+
     # Optional description
     description: Mapped[str | None] = mapped_column(
-        Text,  # Text allows longer content than String
-        nullable=True
+        Text, nullable=True  # Text allows longer content than String
     )
-    
+
     # ========== FILE INFO ==========
     # URL where file is stored
     file_url: Mapped[str] = mapped_column(
-        String(512),  # URLs can be long
-        nullable=False
+        String(512), nullable=False  # URLs can be long
     )
-    
+
     # File size in bytes
-    file_size: Mapped[int] = mapped_column(
-        Integer,
-        default=0
-    )
-    
+    file_size: Mapped[int] = mapped_column(Integer, default=0)
+
     # ========== RELATIONSHIPS ==========
     # Who uploaded this document
     uploaded_by: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("users.id"),  # References users table
-        index=True
+        Integer, ForeignKey("users.id"), index=True  # References users table
     )
-    
+
     # Relationship to User model (optional, for easy access)
     # uploader: Mapped["User"] = relationship()
-    
+
     # ========== TIMESTAMPS ==========
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        server_default=func.now()
-    )
-    
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
     def __repr__(self) -> str:
         return f"<Document(id={self.id}, title={self.title}, category={self.category})>"

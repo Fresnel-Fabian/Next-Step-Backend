@@ -16,13 +16,14 @@ from datetime import datetime
 class PollOptionInput(BaseModel):
     """
     Schema for poll option in create request.
-    
+
     Example:
     {
         "id": 1,
         "text": "Monday"
     }
     """
+
     id: int
     text: str
 
@@ -30,7 +31,7 @@ class PollOptionInput(BaseModel):
 class PollOptionResponse(BaseModel):
     """
     Schema for poll option in response (includes vote counts).
-    
+
     Example:
     {
         "id": 1,
@@ -39,6 +40,7 @@ class PollOptionResponse(BaseModel):
         "percentage": 45.5
     }
     """
+
     id: int
     text: str
     votes: int = 0
@@ -48,9 +50,9 @@ class PollOptionResponse(BaseModel):
 class PollCreate(BaseModel):
     """
     Schema for creating a new poll.
-    
+
     Request body for POST /api/v1/polls
-    
+
     Example:
     {
         "title": "Best day for staff meetings?",
@@ -63,11 +65,12 @@ class PollCreate(BaseModel):
         "expires_at": "2024-12-31T23:59:59Z"
     }
     """
+
     title: str
     description: str | None = None
     options: list[PollOptionInput]
     expires_at: datetime | None = None
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -76,9 +79,9 @@ class PollCreate(BaseModel):
                 "options": [
                     {"id": 1, "text": "Monday"},
                     {"id": 2, "text": "Wednesday"},
-                    {"id": 3, "text": "Friday"}
+                    {"id": 3, "text": "Friday"},
                 ],
-                "expires_at": "2024-12-31T23:59:59Z"
+                "expires_at": "2024-12-31T23:59:59Z",
             }
         }
     }
@@ -87,9 +90,9 @@ class PollCreate(BaseModel):
 class PollResponse(BaseModel):
     """
     Schema for poll in API responses.
-    
+
     Includes calculated vote percentages for each option.
-    
+
     Example response:
     {
         "id": 1,
@@ -106,6 +109,7 @@ class PollResponse(BaseModel):
         "expiresAt": "2024-12-31T23:59:59Z"
     }
     """
+
     id: int
     title: str
     description: str | None
@@ -114,29 +118,22 @@ class PollResponse(BaseModel):
     totalVotes: int  # camelCase
     createdAt: datetime  # camelCase
     expiresAt: datetime | None  # camelCase
-    
-    model_config = {
-        "from_attributes": True
-    }
+
+    model_config = {"from_attributes": True}
 
 
 class VoteRequest(BaseModel):
     """
     Schema for casting a vote.
-    
+
     Request body for POST /api/v1/polls/{id}/vote
-    
+
     Example:
     {
         "option_id": 2
     }
     """
+
     option_id: int
-    
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "option_id": 2
-            }
-        }
-    }
+
+    model_config = {"json_schema_extra": {"example": {"option_id": 2}}}

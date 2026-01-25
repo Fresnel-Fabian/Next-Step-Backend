@@ -10,14 +10,22 @@ import logging
 
 from app.database import engine, Base
 from app.config import get_settings
-from app.routers import auth, users, dashboard, schedules, documents, polls, notifications
+from app.routers import (
+    auth,
+    users,
+    dashboard,
+    schedules,
+    documents,
+    polls,
+    notifications,
+)
 
 settings = get_settings()
 
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -26,14 +34,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown."""
     logger.info("Starting application...")
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     logger.info("Database tables created/verified")
-    
+
     yield
-    
+
     logger.info("Shutting down...")
     await engine.dispose()
 
@@ -58,12 +66,12 @@ app.add_middleware(
 )
 
 # ===== Include ALL Routers =====
-app.include_router(auth.router)           # /api/v1/auth/*
-app.include_router(users.router)          # /api/v1/users/*
-app.include_router(dashboard.router)      # /api/v1/dashboard/*
-app.include_router(schedules.router)      # /api/v1/schedules/*
-app.include_router(documents.router)      # /api/v1/documents/*
-app.include_router(polls.router)          # /api/v1/polls/*
+app.include_router(auth.router)  # /api/v1/auth/*
+app.include_router(users.router)  # /api/v1/users/*
+app.include_router(dashboard.router)  # /api/v1/dashboard/*
+app.include_router(schedules.router)  # /api/v1/schedules/*
+app.include_router(documents.router)  # /api/v1/documents/*
+app.include_router(polls.router)  # /api/v1/polls/*
 app.include_router(notifications.router)  # /api/v1/notifications/*
 
 
@@ -74,8 +82,4 @@ async def health_check():
 
 @app.get("/", tags=["Root"])
 async def root():
-    return {
-        "message": "School Management API",
-        "version": "1.0.0",
-        "docs": "/api/docs"
-    }
+    return {"message": "School Management API", "version": "1.0.0", "docs": "/api/docs"}

@@ -12,9 +12,10 @@ from app.models.user import UserRole
 class UserBase(BaseModel):
     """
     Base schema with common fields.
-    
+
     Other schemas inherit from this to avoid repetition (DRY principle).
     """
+
     name: str
     email: EmailStr
     department: str | None = None
@@ -23,9 +24,9 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """
     Schema for creating a new user (registration).
-    
+
     Includes password (only time we accept password from client).
-    
+
     Example request:
     {
         "name": "John Doe",
@@ -34,9 +35,10 @@ class UserCreate(UserBase):
         "department": "Science"
     }
     """
+
     password: str
     role: UserRole = UserRole.STUDENT  # Default role
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -44,7 +46,7 @@ class UserCreate(UserBase):
                 "email": "john@school.edu",
                 "password": "secretpassword123",
                 "department": "Science",
-                "role": "STUDENT"
+                "role": "STUDENT",
             }
         }
     }
@@ -53,24 +55,22 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """
     Schema for updating user profile.
-    
+
     All fields optional - only update what's provided.
-    
+
     Example request:
     {
         "name": "John Smith",
         "department": "Mathematics"
     }
     """
+
     name: str | None = None
     department: str | None = None
-    
+
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "name": "John Smith",
-                "department": "Mathematics"
-            }
+            "example": {"name": "John Smith", "department": "Mathematics"}
         }
     }
 
@@ -78,11 +78,11 @@ class UserUpdate(BaseModel):
 class UserResponse(BaseModel):
     """
     Schema for user data in API responses.
-    
+
     NEVER includes password or sensitive internal fields.
-    
+
     Note: 'id' is string to match your frontend API spec.
-    
+
     Example response:
     {
         "id": "1",
@@ -93,27 +93,28 @@ class UserResponse(BaseModel):
         "department": "Science"
     }
     """
+
     id: str  # String to match your API spec
     name: str
     email: str
     role: UserRole
     avatar: str | None = None
     department: str | None = None
-    
+
     model_config = {
         # Allows creating from SQLAlchemy model
         "from_attributes": True
     }
-    
+
     @classmethod
     def from_user(cls, user) -> "UserResponse":
         """
         Create UserResponse from SQLAlchemy User model.
-        
+
         Why a custom method?
         - Converts int id to string
         - Ensures consistent transformation
-        
+
         Usage:
             user = await db.get(User, 1)
             response = UserResponse.from_user(user)
@@ -124,5 +125,5 @@ class UserResponse(BaseModel):
             email=user.email,
             role=user.role,
             avatar=user.avatar,
-            department=user.department
+            department=user.department,
         )

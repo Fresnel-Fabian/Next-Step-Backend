@@ -34,155 +34,133 @@ from app.models.user import User
 # ============================================
 # prefix: All routes will start with /api/v1/auth
 # tags: Groups routes in Swagger UI docs
-router = APIRouter(
-    prefix="/api/v1/auth",
-    tags=["Authentication"]
-)
+router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
 # ============================================
 # POST /api/v1/auth/login
 # ============================================
 @router.post("/login")
-async def login(
-    request: LoginRequest,
-    db: AsyncSession = Depends(get_db)
-):
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
-    Authenticate user with email and password.
-    
-    Request body:
-```json
-    {
-        "email": "user@school.edu",
-        "password": "yourpassword"
-    }
-```
-    
-    Returns:
-```json
-    {
-        "token": "eyJhbG...",
-        "user": {
-            "id": "1",
-            "name": "John Doe",
+        Authenticate user with email and password.
+
+        Request body:
+    ```json
+        {
             "email": "user@school.edu",
-            "role": "STAFF",
-            "avatar": null,
-            "department": "Science"
+            "password": "yourpassword"
         }
-    }
-```
+    ```
+
+        Returns:
+    ```json
+        {
+            "token": "eyJhbG...",
+            "user": {
+                "id": "1",
+                "name": "John Doe",
+                "email": "user@school.edu",
+                "role": "STAFF",
+                "avatar": null,
+                "department": "Science"
+            }
+        }
+    ```
     """
     # Authenticate user (checks email exists and password matches)
     user = await authenticate_user(db, request.email, request.password)
-    
+
     if not user:
         # Don't reveal whether email exists or password is wrong (security)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
-    
+
     # Create our app's JWT token
     token = create_access_token(data={"sub": str(user.id)})
-    
+
     # Return token and user info
-    return {
-        "token": token,
-        "user": UserResponse.from_user(user)
-    }
+    return {"token": token, "user": UserResponse.from_user(user)}
 
 
 # ============================================
 # POST /api/v1/auth/google
 # ============================================
 @router.post("/google")
-async def google_auth(
-    request: GoogleAuthRequest,
-    db: AsyncSession = Depends(get_db)
-):
+async def google_auth(request: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """
-    Authenticate user with Google OAuth.
-    
-    Frontend sends the idToken received from Google SDK.
-    
-    Request body:
-```json
-    {
-        "idToken": "eyJhbGciOiJSUzI1NiIs..."
-    }
-```
-    
-    Returns: Same as /login
-    
-    Flow:
-    1. Verify idToken with Google servers
-    2. Extract user info (email, name, picture)
-    3. Find or create user in our database
-    4. Return our JWT token
+        Authenticate user with Google OAuth.
+
+        Frontend sends the idToken received from Google SDK.
+
+        Request body:
+    ```json
+        {
+            "idToken": "eyJhbGciOiJSUzI1NiIs..."
+        }
+    ```
+
+        Returns: Same as /login
+
+        Flow:
+        1. Verify idToken with Google servers
+        2. Extract user info (email, name, picture)
+        3. Find or create user in our database
+        4. Return our JWT token
     """
     try:
         # Step 1: Verify token with Google
         google_data = await verify_google_token(request.idToken)
-        
+
     except GoogleAuthError as e:
         # Token verification failed
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
-    
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
     # Step 2: Find or create user in our database
     user = await get_or_create_google_user(db, google_data)
-    
+
     # Step 3: Create our JWT token
     token = create_access_token(data={"sub": str(user.id)})
-    
-    return {
-        "token": token,
-        "user": UserResponse.from_user(user)
-    }
+
+    return {"token": token, "user": UserResponse.from_user(user)}
 
 
 # ============================================
 # POST /api/v1/auth/register
 # ============================================
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(
-    user_data: UserCreate,
-    db: AsyncSession = Depends(get_db)
-):
+@router.post(
+    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
+async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """
-    Register a new user account.
-    
-    Request body:
-```json
-    {
-        "name": "John Doe",
-        "email": "john@school.edu",
-        "password": "securepassword123",
-        "department": "Science"
-    }
-```
-    
-    Returns: User object (without token - they need to login)
-    
-    Note: In production, you might want to:
-    - Send verification email
-    - Require admin approval
-    - Add rate limiting
+        Register a new user account.
+
+        Request body:
+    ```json
+        {
+            "name": "John Doe",
+            "email": "john@school.edu",
+            "password": "securepassword123",
+            "department": "Science"
+        }
+    ```
+
+        Returns: User object (without token - they need to login)
+
+        Note: In production, you might want to:
+        - Send verification email
+        - Require admin approval
+        - Add rate limiting
     """
     # Check if email already exists
-    existing = await db.execute(
-        select(User).where(User.email == user_data.email)
-    )
+    existing = await db.execute(select(User).where(User.email == user_data.email))
     if existing.scalar_one_or_none():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
-    
+
     # Create new user
     user = User(
         email=user_data.email,
@@ -191,11 +169,11 @@ async def register(
         department=user_data.department,
         role=user_data.role,
     )
-    
+
     db.add(user)
     await db.commit()
     await db.refresh(user)  # Get auto-generated fields (id, created_at)
-    
+
     return UserResponse.from_user(user)
 
 
@@ -203,22 +181,20 @@ async def register(
 # GET /api/v1/auth/me
 # ============================================
 @router.get("/me", response_model=UserResponse)
-async def get_me(
-    current_user: User = Depends(get_current_user)
-):
+async def get_me(current_user: User = Depends(get_current_user)):
     """
-    Get the current authenticated user's profile.
-    
-    Requires: Authorization header with valid JWT token
-    
-    Headers:
-```
-    Authorization: Bearer eyJhbG...
-```
-    
-    Returns: Current user's profile
-    
-    Note: The user is automatically extracted from the token
-    by the get_current_user dependency.
+        Get the current authenticated user's profile.
+
+        Requires: Authorization header with valid JWT token
+
+        Headers:
+    ```
+        Authorization: Bearer eyJhbG...
+    ```
+
+        Returns: Current user's profile
+
+        Note: The user is automatically extracted from the token
+        by the get_current_user dependency.
     """
     return UserResponse.from_user(current_user)

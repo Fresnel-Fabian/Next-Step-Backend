@@ -18,9 +18,9 @@ from datetime import datetime
 class Activity(Base):
     """
     Activity database model.
-    
+
     Logs activities for the dashboard feed.
-    
+
     Example:
         Activity(
             title="Schedule Created",
@@ -30,52 +30,34 @@ class Activity(Base):
             entity_id=1
         )
     """
-    
+
     __tablename__ = "activities"
-    
+
     # ========== PRIMARY KEY ==========
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True
-    )
-    
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
     # ========== ACTIVITY INFO ==========
     # What happened (displayed in UI)
-    title: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False
-    )
-    
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+
     # Who did it (user name or department)
-    author: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False
-    )
-    
+    author: Mapped[str] = mapped_column(String(255), nullable=False)
+
     # Type of action: create, update, delete, upload
-    action_type: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-    
+    action_type: Mapped[str] = mapped_column(String(100), nullable=False)
+
     # What type of entity: schedule, document, poll, user
-    entity_type: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True
-    )
-    
+    entity_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # ID of the entity (for linking)
-    entity_id: Mapped[int | None] = mapped_column(
-        Integer,
-        nullable=True
-    )
-    
+    entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # ========== TIMESTAMPS ==========
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime,
-        server_default=func.now(),
-        index=True  # Sort by timestamp
+        DateTime, server_default=func.now(), index=True  # Sort by timestamp
     )
-    
+
     def __repr__(self) -> str:
-        return f"<Activity(id={self.id}, title={self.title}, action={self.action_type})>"
+        return (
+            f"<Activity(id={self.id}, title={self.title}, action={self.action_type})>"
+        )

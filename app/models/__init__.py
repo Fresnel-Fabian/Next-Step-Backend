@@ -17,20 +17,15 @@ __all__ = [
     # User
     "User",
     "UserRole",
-    
     # Schedule
     "Schedule",
-    
     # Document
     "Document",
-    
     # Poll
     "Poll",
     "PollVote",
-    
     # Notification
     "Notification",
-    
     # Activity
     "Activity",
 ]
