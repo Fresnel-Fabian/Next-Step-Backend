@@ -44,6 +44,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
         Authenticate user with email and password.
+        Returns user with role (ADMIN, TEACHER, STUDENT) - frontend routes based on role.
 
         Request body:
     ```json
@@ -68,20 +69,15 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
         }
     ```
     """
-    # Authenticate user (checks email exists and password matches)
     user = await authenticate_user(db, request.email, request.password)
 
     if not user:
-        # Don't reveal whether email exists or password is wrong (security)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    # Create our app's JWT token
     token = create_access_token(data={"sub": str(user.id)})
-
-    # Return token and user info
     return {"token": token, "user": UserResponse.from_user(user)}
 
 
