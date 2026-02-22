@@ -1,63 +1,129 @@
 # test_api.py
-"""Interactive API testing script."""
+"""Interactive API testing script.
+
+Run once to create test credentials and run tests.
+Credentials are created in DB and printed for use in frontend/manual testing.
+"""
 
 import httpx
 import asyncio
 
 BASE_URL = "http://localhost:8000"
 
+# Test credentials - created by this script, use for frontend/manual testing
+ADMIN = {"email": "admin@school.edu", "password": "adminpass123", "role": "ADMIN"}
+USER = {"email": "teacher@school.edu", "password": "teacherpass123", "role": "TEACHER"}
+
+
+def _register_user(client: httpx.AsyncClient, name: str, email: str, password: str, department: str, role: str):
+    return client.post(
+        f"{BASE_URL}/api/v1/auth/register",
+        json={
+            "name": name,
+            "email": email,
+            "password": password,
+            "department": department,
+            "role": role,
+        },
+    )
+
 
 async def test_api():
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=5.0) as client:
         # 1. Health Check
         print("\n1. Health Check")
-        r = await client.get(f"{BASE_URL}/health")
+        try:
+            r = await client.get(f"{BASE_URL}/health")
+        except httpx.ConnectError:
+            print(f"   ERROR: Cannot connect to {BASE_URL}")
+            print("   Make sure the backend is running:")
+            print("   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000")
+            return
         print(f"   Status: {r.status_code}")
         print(f"   Response: {r.json()}")
 
-        # 2. Register
-        print("\n2. Register User")
-        r = await client.post(
-            f"{BASE_URL}/api/v1/auth/register",
-            json={
-                "name": "Test User",
-                "email": "test@school.edu",
-                "password": "testpass123",
-                "department": "Testing",
-            },
+        # 2. Register Admin
+        print("\n2. Register Admin")
+        r = await _register_user(
+            client,
+            name="Admin User",
+            email=ADMIN["email"],
+            password=ADMIN["password"],
+            department="Administration",
+            role=ADMIN["role"],
         )
         print(f"   Status: {r.status_code}")
-        print(f"   Response: {r.json()}")
+        if r.status_code == 201:
+            print(f"   Created: {r.json()}")
+        else:
+            print(f"   (already exists: {r.json().get('detail', r.json())})")
 
-        # 3. Login
-        print("\n3. Login")
+        # 3. Register User (Teacher)
+        print("\n3. Register User (Teacher)")
+        r = await _register_user(
+            client,
+            name="Test Teacher",
+            email=USER["email"],
+            password=USER["password"],
+            department="Science",
+            role=USER["role"],
+        )
+        print(f"   Status: {r.status_code}")
+        if r.status_code == 201:
+            print(f"   Created: {r.json()}")
+        else:
+            print(f"   (already exists: {r.json().get('detail', r.json())})")
+
+        # 4. Login as Admin
+        print("\n4. Login as Admin")
         r = await client.post(
             f"{BASE_URL}/api/v1/auth/login",
-            json={"email": "test@school.edu", "password": "testpass123"},
+            json={"email": ADMIN["email"], "password": ADMIN["password"]},
         )
         print(f"   Status: {r.status_code}")
         data = r.json()
-        token = data.get("token")
-        print(f"   Token: {token[:50]}...")
+        admin_token = data.get("token")
+        if admin_token:
+            print(f"   Token: {admin_token[:50]}...")
 
-        # 4. Get Me
-        print("\n4. Get Current User")
+        # 5. Login as User
+        print("\n5. Login as User")
+        r = await client.post(
+            f"{BASE_URL}/api/v1/auth/login",
+            json={"email": USER["email"], "password": USER["password"]},
+        )
+        print(f"   Status: {r.status_code}")
+        data = r.json()
+        user_token = data.get("token")
+        if user_token:
+            print(f"   Token: {user_token[:50]}...")
+
+        # 6. Get Me (as Admin)
+        print("\n6. Get Current User (Admin)")
         r = await client.get(
-            f"{BASE_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+            f"{BASE_URL}/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
         print(f"   Status: {r.status_code}")
         print(f"   Response: {r.json()}")
 
-        # 5. Update Profile
-        print("\n5. Update Profile")
+        # 7. Update Profile (as User)
+        print("\n7. Update Profile (User)")
         r = await client.put(
             f"{BASE_URL}/api/v1/users/profile",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"name": "Updated Name"},
+            headers={"Authorization": f"Bearer {user_token}"},
+            json={"name": "Updated Teacher Name"},
         )
         print(f"   Status: {r.status_code}")
         print(f"   Response: {r.json()}")
 
+        # Print credentials for testing
+        print("\n" + "=" * 50)
+        print("TEST CREDENTIALS (use in frontend or manual testing)")
+        print("=" * 50)
+        print("Admin:  ", ADMIN["email"], " / ", ADMIN["password"])
+        print("User:   ", USER["email"], " / ", USER["password"])
+        print("=" * 50)
         print("\n✓ All tests completed!")
 
 
