@@ -79,7 +79,7 @@ class User(Base):
     # Role - determines what user can do
     role: Mapped[UserRole] = mapped_column(
         SQLEnum(UserRole),  # Use Python Enum in database
-        default=UserRole.STUDENT,  # New users are STAFF by default
+        default=UserRole.STUDENT,  # New users are STUDENT by default
         nullable=False,
     )
 

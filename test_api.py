@@ -12,7 +12,8 @@ BASE_URL = "http://localhost:8000"
 
 # Test credentials - created by this script, use for frontend/manual testing
 ADMIN = {"email": "admin@school.edu", "password": "adminpass123", "role": "ADMIN"}
-USER = {"email": "student@school.edu", "password": "studentpass123", "role": "STUDENT"}
+TEACHER = {"email": "teacher@school.edu", "password": "teacherpass123", "role": "TEACHER"}
+STUDENT = {"email": "student@school.edu", "password": "studentpass123", "role": "STUDENT"}
 
 
 def _register_user(client: httpx.AsyncClient, name: str, email: str, password: str, department: str, role: str):
@@ -58,15 +59,15 @@ async def test_api():
         else:
             print(f"   (already exists: {r.json().get('detail', r.json())})")
 
-        # 3. Register User (Student)
-        print("\n3. Register User (Student)")
+        # 3. Register Teacher
+        print("\n3. Register Teacher")
         r = await _register_user(
             client,
-            name="Test Student",
-            email=USER["email"],
-            password=USER["password"],
+            name="Test Teacher",
+            email=TEACHER["email"],
+            password=TEACHER["password"],
             department="Science",
-            role=USER["role"],
+            role=TEACHER["role"],
         )
         print(f"   Status: {r.status_code}")
         if r.status_code == 201:
@@ -74,8 +75,24 @@ async def test_api():
         else:
             print(f"   (already exists: {r.json().get('detail', r.json())})")
 
-        # 4. Login as Admin
-        print("\n4. Login as Admin")
+        # 4. Register Student
+        print("\n4. Register Student")
+        r = await _register_user(
+            client,
+            name="Test Student",
+            email=STUDENT["email"],
+            password=STUDENT["password"],
+            department="Science",
+            role=STUDENT["role"],
+        )
+        print(f"   Status: {r.status_code}")
+        if r.status_code == 201:
+            print(f"   Created: {r.json()}")
+        else:
+            print(f"   (already exists: {r.json().get('detail', r.json())})")
+
+        # 5. Login as Admin
+        print("\n5. Login as Admin")
         r = await client.post(
             f"{BASE_URL}/api/v1/auth/login",
             json={"email": ADMIN["email"], "password": ADMIN["password"]},
@@ -86,11 +103,23 @@ async def test_api():
         if admin_token:
             print(f"   Token: {admin_token[:50]}...")
 
-        # 5. Login as User
-        print("\n5. Login as User")
+        # 6. Login as Teacher
+        print("\n6. Login as Teacher")
         r = await client.post(
             f"{BASE_URL}/api/v1/auth/login",
-            json={"email": USER["email"], "password": USER["password"]},
+            json={"email": TEACHER["email"], "password": TEACHER["password"]},
+        )
+        print(f"   Status: {r.status_code}")
+        data = r.json()
+        teacher_token = data.get("token")
+        if teacher_token:
+            print(f"   Token: {teacher_token[:50]}...")
+
+        # 7. Login as Student
+        print("\n7. Login as Student")
+        r = await client.post(
+            f"{BASE_URL}/api/v1/auth/login",
+            json={"email": STUDENT["email"], "password": STUDENT["password"]},
         )
         print(f"   Status: {r.status_code}")
         data = r.json()
@@ -98,8 +127,8 @@ async def test_api():
         if user_token:
             print(f"   Token: {user_token[:50]}...")
 
-        # 6. Get Me (as Admin)
-        print("\n6. Get Current User (Admin)")
+        # 8. Get Me (as Admin)
+        print("\n8. Get Current User (Admin)")
         r = await client.get(
             f"{BASE_URL}/api/v1/auth/me",
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -107,8 +136,8 @@ async def test_api():
         print(f"   Status: {r.status_code}")
         print(f"   Response: {r.json()}")
 
-        # 7. Update Profile (as User)
-        print("\n7. Update Profile (User)")
+        # 9. Update Profile (as Student)
+        print("\n9. Update Profile (Student)")
         r = await client.put(
             f"{BASE_URL}/api/v1/users/profile",
             headers={"Authorization": f"Bearer {user_token}"},
@@ -121,8 +150,9 @@ async def test_api():
         print("\n" + "=" * 50)
         print("TEST CREDENTIALS (use in frontend or manual testing)")
         print("=" * 50)
-        print("Admin:  ", ADMIN["email"], " / ", ADMIN["password"])
-        print("User:   ", USER["email"], " / ", USER["password"])
+        print("Admin:   ", ADMIN["email"], " / ", ADMIN["password"])
+        print("Teacher: ", TEACHER["email"], " / ", TEACHER["password"])
+        print("Student: ", STUDENT["email"], " / ", STUDENT["password"])
         print("=" * 50)
         print("\n✓ All tests completed!")
 
