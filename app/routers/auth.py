@@ -62,7 +62,7 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
                 "id": "1",
                 "name": "John Doe",
                 "email": "user@school.edu",
-                "role": "STAFF",
+                "role": "STUDENT",
                 "avatar": null,
                 "department": "Science"
             }

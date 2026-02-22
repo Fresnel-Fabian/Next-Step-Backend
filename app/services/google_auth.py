@@ -133,7 +133,7 @@ async def get_or_create_google_user(db: AsyncSession, google_data: dict) -> User
         name=google_data["name"],
         google_id=google_data["google_id"],
         avatar=google_data.get("avatar"),
-        role=UserRole.STAFF,  # Default role for new users
+        role=UserRole.STUDENT,  # Default role for new users
         hashed_password=None,  # No password for Google users
     )
 

@@ -12,7 +12,7 @@ BASE_URL = "http://localhost:8000"
 
 # Test credentials - created by this script, use for frontend/manual testing
 ADMIN = {"email": "admin@school.edu", "password": "adminpass123", "role": "ADMIN"}
-USER = {"email": "teacher@school.edu", "password": "teacherpass123", "role": "TEACHER"}
+USER = {"email": "student@school.edu", "password": "studentpass123", "role": "STUDENT"}
 
 
 def _register_user(client: httpx.AsyncClient, name: str, email: str, password: str, department: str, role: str):
@@ -58,11 +58,11 @@ async def test_api():
         else:
             print(f"   (already exists: {r.json().get('detail', r.json())})")
 
-        # 3. Register User (Teacher)
-        print("\n3. Register User (Teacher)")
+        # 3. Register User (Student)
+        print("\n3. Register User (Student)")
         r = await _register_user(
             client,
-            name="Test Teacher",
+            name="Test Student",
             email=USER["email"],
             password=USER["password"],
             department="Science",
@@ -112,7 +112,7 @@ async def test_api():
         r = await client.put(
             f"{BASE_URL}/api/v1/users/profile",
             headers={"Authorization": f"Bearer {user_token}"},
-            json={"name": "Updated Teacher Name"},
+            json={"name": "Updated Student Name"},
         )
         print(f"   Status: {r.status_code}")
         print(f"   Response: {r.json()}")

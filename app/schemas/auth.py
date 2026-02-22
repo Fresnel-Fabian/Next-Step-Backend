@@ -28,7 +28,7 @@ class LoginRequest(BaseModel):
     # Pydantic V2 config
     model_config = {
         "json_schema_extra": {
-            "example": {"email": "teacher@school.edu", "password": "mypassword123"}
+            "example": {"email": "student@school.edu", "password": "mypassword123"}
         }
     }
 
@@ -76,7 +76,7 @@ class Token(BaseModel):
                     "id": "1",
                     "name": "John Doe",
                     "email": "john@school.edu",
-                    "role": "TEACHER",
+                    "role": "STUDENT",
                     "avatar": None,
                     "department": "Science",
                 },
