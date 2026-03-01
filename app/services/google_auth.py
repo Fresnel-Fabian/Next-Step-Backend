@@ -53,19 +53,28 @@ async def verify_google_token(token: str) -> dict:
     Raises:
         GoogleAuthError: If token is invalid
     """
-    try:
-        # Verify the token with Google
-        # This makes a network request to Google's servers
-        idinfo = id_token.verify_oauth2_token(
-            token,
-            requests.Request(),
-            settings.google_client_id,  # Must match your frontend!
-        )
+    idinfo = None
+    last_error = None
 
-        # Verify the issuer (who created this token)
-        # Must be Google's accounts service
-        if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
-            raise GoogleAuthError("Invalid token issuer")
+    for client_id in settings.google_client_ids:
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                requests.Request(),
+                client_id,
+            )
+            break
+        except ValueError as e:
+            last_error = e
+            continue
+
+    # Verify the issuer (who created this token)
+    # Must be Google's accounts service
+    if idinfo is None:
+        raise GoogleAuthError(f"Invalid token: {str(last_error)}")
+
+    if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
+        raise GoogleAuthError("Invalid token issuer")
 
         # Extract user information
         return {
@@ -74,10 +83,6 @@ async def verify_google_token(token: str) -> dict:
             "name": idinfo.get("name", ""),  # May not always be present
             "avatar": idinfo.get("picture"),  # Profile picture URL
         }
-
-    except ValueError as e:
-        # Token verification failed
-        raise GoogleAuthError(f"Invalid token: {str(e)}")
 
 
 async def get_or_create_google_user(db: AsyncSession, google_data: dict) -> User:
