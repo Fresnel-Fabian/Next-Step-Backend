@@ -1,6 +1,6 @@
 # Contributing
 
-Local development setup and workflow. For production deployment, see [docs/deployment.md](docs/deployment.md).
+Local development setup and workflow. For production deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
