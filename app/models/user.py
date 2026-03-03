@@ -8,7 +8,7 @@ This stores all user information including:
 - Google OAuth integration
 """
 
-from sqlalchemy import String, Enum as SQLEnum, DateTime, func
+from sqlalchemy import String, Enum as SQLEnum, DateTime, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from datetime import datetime
@@ -123,6 +123,11 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",  # Delete notifications when user deleted
     )
+
+    # Google Drive Token Params
+    drive_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    drive_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    drive_token_expiry: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         """String representation for debugging."""

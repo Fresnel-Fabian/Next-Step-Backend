@@ -10,12 +10,14 @@ Endpoints:
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from app.utils.datetime_helpers import utc_now, to_db
 
 from app.database import get_db
 from app.schemas.dashboard import DashboardStats, ActivityItem
 from app.dependencies import get_current_user
 from app.models import User, Schedule, Document, Notification, Activity
+
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -43,7 +45,7 @@ async def get_stats(
 
     # ===== Staff Added This Month =====
     # Get the first day of current month
-    now = datetime.now(timezone.utc)
+    now = to_db(utc_now())
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     new_staff = await db.scalar(
@@ -56,7 +58,7 @@ async def get_stats(
     )
 
     # ===== Notifications Sent (Last 30 Days) =====
-    thirty_days_ago = now - timedelta(days=30)
+    thirty_days_ago = to_db(utc_now() - timedelta(days=30))
 
     notifications_sent = await db.scalar(
         select(func.count(Notification.id)).where(

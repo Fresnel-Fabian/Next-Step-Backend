@@ -4,11 +4,14 @@ Authentication schemas for request/response validation.
 
 These define the exact shape of data for:
 - Login requests
-- Google OAuth requests
+- Google PKCE authorization-code exchange requests
 - Token responses
+
+ref: https://developers.google.com/identity/protocols/oauth2/native-app
 """
 
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 
 class LoginRequest(BaseModel):
@@ -22,7 +25,7 @@ class LoginRequest(BaseModel):
     }
     """
 
-    email: EmailStr  # Validates email format automatically!
+    email: EmailStr
     password: str
 
     # Pydantic V2 config
@@ -35,21 +38,29 @@ class LoginRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     """
-    Schema for Google OAuth login.
-
-    The frontend sends the idToken received from Google.
+    Schema for Google PKCE authorization-code login.
+    ResponseType.Token (implicit flow) never returns an id_token or a
+    refresh_token. ResponseType.Code (PKCE) returns all three.
 
     Example request body:
     {
-        "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "code": "4/0AX4XfWh...",
+        "codeVerifier": "dBjftJeZ4...",
+        "redirectUri": "exp://192.168.1.5:19000"
     }
     """
 
-    idToken: str  # JWT token from Google (camelCase to match frontend)
+    code: str
+    codeVerifier: str
+    redirectUri: str
 
     model_config = {
         "json_schema_extra": {
-            "example": {"idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."}
+            "example": {
+                "code": "4/0AX4XfWh...",
+                "codeVerifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+                "redirectUri": "exp://192.168.1.5:19000",
+            }
         }
     }
 
@@ -66,7 +77,7 @@ class Token(BaseModel):
     """
 
     token: str
-    user: "UserResponse"  # Forward reference (defined in user.py)
+    user: "UserResponse"
 
     model_config = {
         "json_schema_extra": {
@@ -98,4 +109,4 @@ class TokenData(BaseModel):
 # Import at bottom to avoid circular import
 from app.schemas.user import UserResponse
 
-Token.model_rebuild()  # Rebuild model now that UserResponse is available
+Token.model_rebuild()

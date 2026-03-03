@@ -44,15 +44,20 @@ class Settings(BaseSettings):
         "333-android.apps.googleusercontent.com",
     ]
 
+    # The web client ID specifically for PKCE authorization-code always uses the web OAuth client regardless of platform.
+    google_web_client_id: str = ""
+
+    google_client_secret: str = ""
+
     class Config:
         """Pydantic configuration."""
 
-        env_file = ".env"  # Load from .env file
+        env_file = ".env"
         env_file_encoding = "utf-8"
-        case_sensitive = False  # DATABASE_URL or database_url both work
+        case_sensitive = False
 
 
-@lru_cache  # Cache the settings so we don't re-read .env every time
+@lru_cache
 def get_settings() -> Settings:
     """
     Get application settings (cached).
@@ -66,9 +71,3 @@ def get_settings() -> Settings:
         Settings: Application configuration
     """
     return Settings()
-
-
-# Example usage in other files:
-# from app.config import get_settings
-# settings = get_settings()
-# print(settings.database_url)

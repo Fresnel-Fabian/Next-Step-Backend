@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="School Management API - Staff scheduling, documents, polls, and notifications",
+    description="School Management API",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -56,14 +56,18 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
-# CORS - allow Expo web (localhost:8081, 19006) and common dev origins
+# CORS — list every origin the browser may use.
+# localhost and 127.0.0.1 are both needed. (TODO: I might have changed something that made this no longer necessary)
+# Expo web defaults to port 8081; Expo Go tunnels use 19000/19006.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8081",
-        "http://127.0.0.1:8081",
         "http://localhost:19006",
+        "http://localhost:19000",
+        "http://127.0.0.1:8081",
         "http://127.0.0.1:19006",
+        "http://127.0.0.1:19000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
