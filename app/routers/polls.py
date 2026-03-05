@@ -3,11 +3,13 @@
 Poll routes.
 
 Endpoints:
-- GET   /api/v1/polls              - List polls
-- GET   /api/v1/polls/{id}         - Get specific poll
-- POST  /api/v1/polls              - Create poll (admin)
-- POST  /api/v1/polls/{id}/vote    - Vote on poll
-- PATCH /api/v1/polls/{id}/close   - Close poll (admin)
+- GET    /api/v1/polls                  - List polls (authenticated)
+- GET    /api/v1/polls/{id}             - Get specific poll (authenticated)
+- POST   /api/v1/polls                  - Create poll (admin only)
+- POST   /api/v1/polls/{id}/vote        - Vote on poll (authenticated)
+- GET    /api/v1/polls/{id}/results     - Full results (admin + teacher)
+- PATCH  /api/v1/polls/{id}/close       - Close poll (admin only)
+- DELETE /api/v1/polls/{id}             - Delete poll (admin only)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -21,49 +23,37 @@ from app.schemas.poll import (
     PollResponse,
     PollOptionResponse,
     VoteRequest,
+    PollResultsResponse,
+    VoterDetail,
 )
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user, require_admin, require_roles
 from app.models import User, Poll, PollVote
+from app.models.user import UserRole
 from app.services.activity import log_activity
+from app.services.notifications import broadcast_to_all
 
 router = APIRouter(prefix="/api/v1/polls", tags=["Polls"])
 
 
 async def build_poll_response(db: AsyncSession, poll: Poll) -> PollResponse:
-    """
-    Build PollResponse with calculated vote counts and percentages.
-
-    This is a helper function because we need to:
-    1. Count votes for each option
-    2. Calculate percentages
-    3. Build the response object
-    """
-
-    # Get vote counts grouped by option_id
     vote_counts_result = await db.execute(
         select(PollVote.option_id, func.count(PollVote.id))
         .where(PollVote.poll_id == poll.id)
         .group_by(PollVote.option_id)
     )
-
-    # Convert to dict: {option_id: count}
     votes_map = dict(vote_counts_result.all())
-
-    # Calculate total votes
     total_votes = sum(votes_map.values())
 
-    # Build options with vote counts and percentages
     options = []
     for opt in poll.options.get("options", []):
         vote_count = votes_map.get(opt["id"], 0)
         percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
-
         options.append(
             PollOptionResponse(
                 id=opt["id"],
                 text=opt["text"],
                 votes=vote_count,
-                percentage=round(percentage, 1),  # Round to 1 decimal
+                percentage=round(percentage, 1),
             )
         )
 
@@ -81,40 +71,22 @@ async def build_poll_response(db: AsyncSession, poll: Poll) -> PollResponse:
 
 @router.get("", response_model=list[PollResponse])
 async def list_polls(
-    status: str | None = Query(None, description="Filter: 'active' or 'completed'"),
+    poll_status: str | None = Query(None, description="Filter: 'active' or 'completed'"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """
-    List polls with optional status filtering.
-
-    Query parameters:
-    - status: "active" for open polls, "completed" for closed polls
-
-    Returns polls with calculated vote percentages.
-    """
-
     query = select(Poll)
 
-    # Filter by status
-    if status == "active":
+    if poll_status == "active":
         query = query.where(Poll.is_active == True)
-    elif status == "completed":
+    elif poll_status == "completed":
         query = query.where(Poll.is_active == False)
 
-    # Order by creation date (newest first)
     query = query.order_by(Poll.created_at.desc())
-
     result = await db.execute(query)
     polls = result.scalars().all()
 
-    # Build response with vote counts for each poll
-    response = []
-    for poll in polls:
-        poll_response = await build_poll_response(db, poll)
-        response.append(poll_response)
-
-    return response
+    return [await build_poll_response(db, poll) for poll in polls]
 
 
 @router.get("/{poll_id}", response_model=PollResponse)
@@ -123,10 +95,6 @@ async def get_poll(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """
-    Get a specific poll by ID with vote counts.
-    """
-
     result = await db.execute(select(Poll).where(Poll.id == poll_id))
     poll = result.scalar_one_or_none()
 
@@ -142,27 +110,8 @@ async def get_poll(
 async def create_poll(
     data: PollCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),  # Admin only!
+    current_user: User = Depends(require_admin),
 ):
-    """
-    Create a new poll.
-
-    Requires admin role.
-
-    Request body:
-    {
-        "title": "Best meeting day?",
-        "description": "Vote for your preferred day",
-        "options": [
-            {"id": 1, "text": "Monday"},
-            {"id": 2, "text": "Wednesday"},
-            {"id": 3, "text": "Friday"}
-        ],
-        "expires_at": "2024-12-31T23:59:59Z"
-    }
-    """
-
-    # Convert options to storage format
     options_dict = {"options": [{"id": o.id, "text": o.text} for o in data.options]}
 
     poll = Poll(
@@ -177,7 +126,15 @@ async def create_poll(
     db.add(poll)
     await db.flush()
 
-    # Log activity
+    # Broadcast notification to all users when poll is created
+    await broadcast_to_all(
+        db,
+        title=f"New Poll: {data.title}",
+        message=data.description or f"A new poll has been created. Cast your vote now.",
+        notification_type="info",
+        entity_type="poll",
+    )
+
     await log_activity(
         db,
         title=f"Poll Created: {data.title}",
@@ -200,22 +157,6 @@ async def vote_on_poll(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Cast a vote on a poll.
-
-    Constraints:
-    - Poll must be active
-    - Poll must not be expired
-    - User can only vote once per poll
-    - Option must be valid
-
-    Request body:
-    {
-        "option_id": 2
-    }
-    """
-
-    # Get the poll
     result = await db.execute(select(Poll).where(Poll.id == poll_id))
     poll = result.scalar_one_or_none()
 
@@ -224,19 +165,16 @@ async def vote_on_poll(
             status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
         )
 
-    # Check if poll is active
     if not poll.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Poll is closed"
         )
 
-    # Check if poll is expired
     if poll.expires_at and poll.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Poll has expired"
         )
 
-    # Check if user already voted
     existing_vote = await db.execute(
         select(PollVote).where(
             PollVote.poll_id == poll_id, PollVote.user_id == current_user.id
@@ -248,34 +186,71 @@ async def vote_on_poll(
             detail="You have already voted on this poll",
         )
 
-    # Validate option_id exists in poll options
     valid_option_ids = [o["id"] for o in poll.options.get("options", [])]
     if data.option_id not in valid_option_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid option"
         )
 
-    # Create vote
     vote = PollVote(poll_id=poll_id, user_id=current_user.id, option_id=data.option_id)
-
     db.add(vote)
     await db.commit()
 
     return {"message": "Vote recorded successfully"}
 
 
+@router.get("/{poll_id}/results", response_model=PollResultsResponse)
+async def get_poll_results(
+    poll_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
+):
+    result = await db.execute(select(Poll).where(Poll.id == poll_id))
+    poll = result.scalar_one_or_none()
+
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
+        )
+
+    option_map = {o["id"]: o["text"] for o in poll.options.get("options", [])}
+
+    votes_result = await db.execute(
+        select(PollVote, User)
+        .join(User, PollVote.user_id == User.id)
+        .where(PollVote.poll_id == poll_id)
+        .order_by(PollVote.created_at.desc())
+    )
+    vote_rows = votes_result.all()
+
+    voters = [
+        VoterDetail(
+            user_id=vote.user_id,
+            user_name=user.name,
+            option_id=vote.option_id,
+            option_text=option_map.get(vote.option_id, "Unknown"),
+            voted_at=vote.created_at,
+        )
+        for vote, user in vote_rows
+    ]
+
+    poll_summary = await build_poll_response(db, poll)
+
+    return PollResultsResponse(
+        poll_id=poll.id,
+        title=poll.title,
+        total_votes=poll_summary.totalVotes,
+        options=poll_summary.options,
+        voters=voters,
+    )
+
+
 @router.patch("/{poll_id}/close")
 async def close_poll(
     poll_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),  # Admin only!
+    current_user: User = Depends(require_admin),
 ):
-    """
-    Close a poll (stop accepting votes).
-
-    Requires admin role.
-    """
-
     result = await db.execute(select(Poll).where(Poll.id == poll_id))
     poll = result.scalar_one_or_none()
 
@@ -291,7 +266,6 @@ async def close_poll(
 
     poll.is_active = False
 
-    # Log activity
     await log_activity(
         db,
         title=f"Poll Closed: {poll.title}",
@@ -302,5 +276,33 @@ async def close_poll(
     )
 
     await db.commit()
-
     return {"message": "Poll closed successfully"}
+
+
+@router.delete("/{poll_id}")
+async def delete_poll(
+    poll_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    result = await db.execute(select(Poll).where(Poll.id == poll_id))
+    poll = result.scalar_one_or_none()
+
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
+        )
+
+    await db.delete(poll)
+
+    await log_activity(
+        db,
+        title=f"Poll Deleted: {poll.title}",
+        author=current_user.name,
+        action_type="delete",
+        entity_type="poll",
+        entity_id=poll_id,
+    )
+
+    await db.commit()
+    return {"message": "Poll deleted successfully"}
