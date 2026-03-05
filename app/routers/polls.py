@@ -35,18 +35,13 @@ from app.services.notifications import broadcast_to_all
 router = APIRouter(prefix="/api/v1/polls", tags=["Polls"])
 
 
-async def build_poll_response(db: AsyncSession, poll: Poll) -> PollResponse:
-    vote_counts_result = await db.execute(
-        select(PollVote.option_id, func.count(PollVote.id))
-        .where(PollVote.poll_id == poll.id)
-        .group_by(PollVote.option_id)
-    )
-    votes_map = dict(vote_counts_result.all())
+def _build_poll_response_sync(poll: Poll, votes_map: dict[int, int]) -> PollResponse:
+    """Build PollResponse from poll and pre-fetched option vote counts. No DB access."""
     total_votes = sum(votes_map.values())
-
     options = []
     for opt in poll.options.get("options", []):
-        vote_count = votes_map.get(opt["id"], 0)
+        opt_id = opt.get("id")
+        vote_count = votes_map.get(opt_id, 0) if opt_id is not None else 0
         percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
         options.append(
             PollOptionResponse(
@@ -56,7 +51,6 @@ async def build_poll_response(db: AsyncSession, poll: Poll) -> PollResponse:
                 percentage=round(percentage, 1),
             )
         )
-
     return PollResponse(
         id=poll.id,
         title=poll.title,
@@ -86,7 +80,24 @@ async def list_polls(
     result = await db.execute(query)
     polls = result.scalars().all()
 
-    return [await build_poll_response(db, poll) for poll in polls]
+    if not polls:
+        return []
+
+    poll_ids = [p.id for p in polls]
+    vote_counts_result = await db.execute(
+        select(PollVote.poll_id, PollVote.option_id, func.count(PollVote.id))
+        .where(PollVote.poll_id.in_(poll_ids))
+        .group_by(PollVote.poll_id, PollVote.option_id)
+    )
+    # Build {poll_id: {option_id: count}}
+    votes_by_poll: dict[int, dict[int, int]] = {}
+    for poll_id, option_id, count in vote_counts_result.all():
+        votes_by_poll.setdefault(poll_id, {})[option_id] = count
+
+    return [
+        _build_poll_response_sync(poll, votes_by_poll.get(poll.id, {}))
+        for poll in polls
+    ]
 
 
 @router.get("/{poll_id}", response_model=PollResponse)
@@ -103,7 +114,13 @@ async def get_poll(
             status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
         )
 
-    return await build_poll_response(db, poll)
+    vote_counts_result = await db.execute(
+        select(PollVote.option_id, func.count(PollVote.id))
+        .where(PollVote.poll_id == poll_id)
+        .group_by(PollVote.option_id)
+    )
+    votes_map = dict(vote_counts_result.all())
+    return _build_poll_response_sync(poll, votes_map)
 
 
 @router.post("", response_model=PollResponse, status_code=status.HTTP_201_CREATED)
@@ -147,7 +164,7 @@ async def create_poll(
     await db.commit()
     await db.refresh(poll)
 
-    return await build_poll_response(db, poll)
+    return _build_poll_response_sync(poll, {})
 
 
 @router.post("/{poll_id}/vote")
@@ -194,8 +211,17 @@ async def vote_on_poll(
 
     vote = PollVote(poll_id=poll_id, user_id=current_user.id, option_id=data.option_id)
     db.add(vote)
-    await db.commit()
 
+    await log_activity(
+        db,
+        title=f"Vote on poll: {poll.title}",
+        author=current_user.name,
+        action_type="vote",
+        entity_type="poll",
+        entity_id=poll_id,
+    )
+
+    await db.commit()
     return {"message": "Vote recorded successfully"}
 
 
@@ -234,7 +260,13 @@ async def get_poll_results(
         for vote, user in vote_rows
     ]
 
-    poll_summary = await build_poll_response(db, poll)
+    vote_counts_result = await db.execute(
+        select(PollVote.option_id, func.count(PollVote.id))
+        .where(PollVote.poll_id == poll_id)
+        .group_by(PollVote.option_id)
+    )
+    votes_map = dict(vote_counts_result.all())
+    poll_summary = _build_poll_response_sync(poll, votes_map)
 
     return PollResultsResponse(
         poll_id=poll.id,

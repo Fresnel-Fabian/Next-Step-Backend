@@ -1,5 +1,5 @@
 # app/models/notification.py
-from sqlalchemy import String, DateTime, func, ForeignKey, Boolean, Text
+from sqlalchemy import String, DateTime, func, ForeignKey, Boolean, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from datetime import datetime
@@ -7,6 +7,9 @@ from datetime import datetime
 
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index("idx_notification_user_unread", "user_id", "is_read"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 

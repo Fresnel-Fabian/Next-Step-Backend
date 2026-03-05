@@ -1,4 +1,5 @@
 # app/routers/dashboard.py
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -17,28 +18,31 @@ async def get_stats(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    total_staff = await db.scalar(select(func.count(User.id)))
-
     now = datetime.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    new_staff = await db.scalar(
-        select(func.count(User.id)).where(User.created_at >= month_start)
-    )
-
-    active_schedules = await db.scalar(
-        select(func.count(Schedule.id)).where(Schedule.status == "Active")
-    )
-
     thirty_days_ago = now - timedelta(days=30)
 
-    notifications_sent = await db.scalar(
-        select(func.count(Notification.id)).where(
-            Notification.created_at >= thirty_days_ago
-        )
+    (
+        total_staff,
+        new_staff,
+        active_schedules,
+        notifications_sent,
+        total_documents,
+    ) = await asyncio.gather(
+        db.scalar(select(func.count(User.id))),
+        db.scalar(
+            select(func.count(User.id)).where(User.created_at >= month_start)
+        ),
+        db.scalar(
+            select(func.count(Schedule.id)).where(Schedule.status == "Active")
+        ),
+        db.scalar(
+            select(func.count(Notification.id)).where(
+                Notification.created_at >= thirty_days_ago
+            )
+        ),
+        db.scalar(select(func.count(Document.id))),
     )
-
-    total_documents = await db.scalar(select(func.count(Document.id)))
 
     return DashboardStats(
         totalStaff=total_staff or 0,

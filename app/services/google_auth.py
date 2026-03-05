@@ -26,7 +26,6 @@ from app.config import get_settings
 from app.models.user import User, UserRole
 
 settings = get_settings()
-_google_request = requests.Request()
 
 
 class GoogleAuthError(Exception):
@@ -65,9 +64,12 @@ async def verify_google_token(token: str) -> dict:
         https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
         https://google-auth.readthedocs.io/en/master/reference/google.oauth2.id_token.html
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     idinfo = None
     last_error = None
+
+    # New Request() per call for thread-safety when using run_in_executor
+    google_request = requests.Request()
 
     for client_id in settings.google_client_ids:
         try:
@@ -76,7 +78,7 @@ async def verify_google_token(token: str) -> dict:
                 partial(
                     id_token.verify_oauth2_token,
                     token,
-                    _google_request,
+                    google_request,
                     client_id,
                 ),
             )
@@ -93,12 +95,17 @@ async def verify_google_token(token: str) -> dict:
     if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
         raise GoogleAuthError("Invalid token issuer")
 
+    # Sanitize avatar URL: only allow https
+    picture = idinfo.get("picture")
+    if picture is not None and not picture.strip().lower().startswith("https://"):
+        picture = None
+
     # Extract user information
     return {
         "google_id": idinfo["sub"],  # Unique Google user ID
         "email": idinfo["email"],
         "name": idinfo.get("name", ""),  # May not always be present
-        "avatar": idinfo.get("picture"),  # Profile picture URL
+        "avatar": picture,
     }
 
 
