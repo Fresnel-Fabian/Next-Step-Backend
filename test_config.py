@@ -12,7 +12,8 @@ def test_config():
     print(f"  Debug Mode: {settings.debug}")
     print(f"  Database: {settings.database_url.split('@')[1]}")  # Don't print password
     print(f"  Redis: {settings.redis_url}")
-    print(f"  Google Client ID: {settings.google_client_id[:20]}...")  # First 20 chars
+    first_id = settings.google_client_ids[0] if settings.google_client_ids else "none"
+    print(f"  Google Client IDs: {first_id[:20]}...")  # First ID, 20 chars
     print(f"  Token Expiry: {settings.access_token_expire_minutes} minutes")
 
 
