@@ -3,9 +3,11 @@
 Poll schemas for request/response validation.
 
 Endpoints:
-- GET /api/v1/polls
+- GET  /api/v1/polls
+- GET  /api/v1/polls/{id}
 - POST /api/v1/polls
 - POST /api/v1/polls/{id}/vote
+- GET  /api/v1/polls/{id}/results  (admin only)
 - PATCH /api/v1/polls/{id}/close
 """
 
@@ -20,10 +22,9 @@ class PollOptionInput(BaseModel):
     Example:
     {
         "id": 1,
-        "text": "Monday"
+        "text": "Pizza"
     }
     """
-
     id: int
     text: str
 
@@ -35,12 +36,11 @@ class PollOptionResponse(BaseModel):
     Example:
     {
         "id": 1,
-        "text": "Monday",
+        "text": "Pizza",
         "votes": 15,
         "percentage": 45.5
     }
     """
-
     id: int
     text: str
     votes: int = 0
@@ -55,17 +55,16 @@ class PollCreate(BaseModel):
 
     Example:
     {
-        "title": "Best day for staff meetings?",
-        "description": "Vote for your preferred meeting day",
+        "title": "What should we serve for lunch?",
+        "description": "Vote for your preferred meal",
         "options": [
-            {"id": 1, "text": "Monday"},
-            {"id": 2, "text": "Wednesday"},
-            {"id": 3, "text": "Friday"}
+            {"id": 1, "text": "Pizza"},
+            {"id": 2, "text": "Burger"},
+            {"id": 3, "text": "Salad"}
         ],
         "expires_at": "2024-12-31T23:59:59Z"
     }
     """
-
     title: str
     description: str | None = None
     options: list[PollOptionInput]
@@ -74,12 +73,12 @@ class PollCreate(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "title": "Best day for staff meetings?",
-                "description": "Vote for your preferred meeting day",
+                "title": "What should we serve for lunch?",
+                "description": "Vote for your preferred meal",
                 "options": [
-                    {"id": 1, "text": "Monday"},
-                    {"id": 2, "text": "Wednesday"},
-                    {"id": 3, "text": "Friday"},
+                    {"id": 1, "text": "Pizza"},
+                    {"id": 2, "text": "Burger"},
+                    {"id": 3, "text": "Salad"},
                 ],
                 "expires_at": "2024-12-31T23:59:59Z",
             }
@@ -90,34 +89,16 @@ class PollCreate(BaseModel):
 class PollResponse(BaseModel):
     """
     Schema for poll in API responses.
-
     Includes calculated vote percentages for each option.
-
-    Example response:
-    {
-        "id": 1,
-        "title": "Best day for staff meetings?",
-        "description": "Vote for your preferred day",
-        "options": [
-            {"id": 1, "text": "Monday", "votes": 15, "percentage": 45.5},
-            {"id": 2, "text": "Wednesday", "votes": 10, "percentage": 30.3},
-            {"id": 3, "text": "Friday", "votes": 8, "percentage": 24.2}
-        ],
-        "isActive": true,
-        "totalVotes": 33,
-        "createdAt": "2024-01-15T10:30:00Z",
-        "expiresAt": "2024-12-31T23:59:59Z"
-    }
     """
-
     id: int
     title: str
     description: str | None
     options: list[PollOptionResponse]
-    isActive: bool  # camelCase
-    totalVotes: int  # camelCase
-    createdAt: datetime  # camelCase
-    expiresAt: datetime | None  # camelCase
+    isActive: bool
+    totalVotes: int
+    createdAt: datetime
+    expiresAt: datetime | None
 
     model_config = {"from_attributes": True}
 
@@ -133,7 +114,32 @@ class VoteRequest(BaseModel):
         "option_id": 2
     }
     """
-
     option_id: int
 
     model_config = {"json_schema_extra": {"example": {"option_id": 2}}}
+
+
+# ── Admin-only schemas ───────────────────────────────────────────
+
+class VoterDetail(BaseModel):
+    """
+    Individual voter info.
+    Only exposed to admin via GET /api/v1/polls/{id}/results
+    """
+    user_id: int
+    user_name: str
+    option_id: int
+    option_text: str
+    voted_at: datetime
+
+
+class PollResultsResponse(BaseModel):
+    """
+    Full poll results with voter breakdown.
+    Admin only.
+    """
+    poll_id: int
+    title: str
+    total_votes: int
+    options: list[PollOptionResponse]
+    voters: list[VoterDetail]

@@ -31,4 +31,7 @@ celerybeat.pid
 .pytest_cache/
 .coverage
 htmlcov/
-EOF
+EOFuploads/ 
+curl 
+docker 
+net 
