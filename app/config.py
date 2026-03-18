@@ -44,6 +44,9 @@ class Settings(BaseSettings):
         "333-android.apps.googleusercontent.com",
     ]
 
+    google_web_client_id: str = ""
+    google_client_secret: str = ""
+
     class Config:
         """Pydantic configuration."""
 

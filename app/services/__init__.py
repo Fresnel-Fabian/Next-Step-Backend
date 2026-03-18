@@ -14,7 +14,7 @@ from app.services.auth import (
 )
 from app.services.google_auth import (
     GoogleAuthError,
-    verify_google_token,
+    exchange_google_code,
     get_or_create_google_user,
 )
 from app.services.activity import log_activity
@@ -28,7 +28,7 @@ __all__ = [
     "authenticate_user",
     # Google Auth
     "GoogleAuthError",
-    "verify_google_token",
+    "exchange_google_code",
     "get_or_create_google_user",
     # Activity
     "log_activity",
