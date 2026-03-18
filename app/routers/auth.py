@@ -4,9 +4,11 @@ Authentication routes.
 
 Endpoints:
 - POST /api/v1/auth/login    - Email/password login
-- POST /api/v1/auth/google   - Google OAuth login
+- POST /api/v1/auth/google   - Google PKCE code exchange login
 - POST /api/v1/auth/register - Create new account
 - GET  /api/v1/auth/me       - Get current user profile
+
+ref: https://developers.google.com/identity/protocols/oauth2/native-app
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,24 +24,17 @@ from app.services.auth import (
     hash_password,
 )
 from app.services.google_auth import (
-    verify_google_token,
+    exchange_google_code,
     get_or_create_google_user,
     GoogleAuthError,
 )
 from app.dependencies import get_current_user
 from app.models.user import User
 
-# ============================================
-# Create Router
-# ============================================
-# prefix: All routes will start with /api/v1/auth
-# tags: Groups routes in Swagger UI docs
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
-# ============================================
 # POST /api/v1/auth/login
-# ============================================
 @router.post("/login")
 async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
@@ -81,51 +76,42 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     return {"token": token, "user": UserResponse.from_user(user)}
 
 
-# ============================================
 # POST /api/v1/auth/google
-# ============================================
 @router.post("/google")
 async def google_auth(request: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """
-        Authenticate user with Google OAuth.
+    Authenticate with a Google PKCE authorization code.
 
-        Frontend sends the idToken received from Google SDK.
+    The Expo frontend uses ResponseType.Code to obtain an authorization code
+    and a PKCE code verifier, then sends them here. The backend exchanges the
+    code with Google to receive id_token, access_token, and refresh_token.
 
-        Request body:
+    Request:
     ```json
-        {
-            "idToken": "eyJhbGciOiJSUzI1NiIs..."
-        }
+    {
+        "code": "4/0AX4XfWh...",
+        "code_verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+        "redirect_uri": "exp://192.168.1.5:19000"
+    }
     ```
 
-        Returns: Same as /login
-
-        Flow:
-        1. Verify idToken with Google servers
-        2. Extract user info (email, name, picture)
-        3. Find or create user in our database
-        4. Return our JWT token
+    Returns `{ token, user }`.
     """
     try:
-        # Step 1: Verify token with Google
-        google_data = await verify_google_token(request.idToken)
-
+        google_data = await exchange_google_code(
+            code=request.code,
+            code_verifier=request.code_verifier,
+            redirect_uri=request.redirect_uri,
+        )
     except GoogleAuthError as e:
-        # Token verification failed
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
-    # Step 2: Find or create user in our database
     user = await get_or_create_google_user(db, google_data)
-
-    # Step 3: Create our JWT token
     token = create_access_token(data={"sub": str(user.id)})
-
     return {"token": token, "user": UserResponse.from_user(user)}
 
 
-# ============================================
 # POST /api/v1/auth/register
-# ============================================
 @router.post(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
@@ -157,40 +143,21 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
-    # Create new user
     user = User(
         email=user_data.email,
         name=user_data.name,
-        hashed_password=hash_password(user_data.password),  # Hash password!
+        hashed_password=hash_password(user_data.password),
         department=user_data.department,
         role=user_data.role,
     )
-
     db.add(user)
     await db.commit()
-    await db.refresh(user)  # Get auto-generated fields (id, created_at)
-
+    await db.refresh(user)
     return UserResponse.from_user(user)
 
 
-# ============================================
 # GET /api/v1/auth/me
-# ============================================
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
-    """
-        Get the current authenticated user's profile.
-
-        Requires: Authorization header with valid JWT token
-
-        Headers:
-    ```
-        Authorization: Bearer eyJhbG...
-    ```
-
-        Returns: Current user's profile
-
-        Note: The user is automatically extracted from the token
-        by the get_current_user dependency.
-    """
+    """Return the current authenticated user's profile."""
     return UserResponse.from_user(current_user)
