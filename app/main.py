@@ -15,6 +15,7 @@ from app.routers import (
     users,
     dashboard,
     schedules,
+    schedule_events,
     documents,
     polls,
     notifications,
@@ -86,6 +87,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(dashboard.router)
 app.include_router(schedules.router)
+app.include_router(schedule_events.router)
 app.include_router(documents.router)
 app.include_router(polls.router)
 app.include_router(notifications.router)

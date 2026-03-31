@@ -10,12 +10,12 @@ Endpoints:
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.database import get_db
 from app.schemas.announcement import AnnouncementCreate, AnnouncementResponse
 from app.dependencies import get_current_user, require_admin, require_roles
-from app.models import User, Announcement
+from app.models import User, Announcement, Notification, Activity
 from app.models.user import UserRole
 from app.services.activity import log_activity
 from app.services.notifications import broadcast_to_all
@@ -66,6 +66,7 @@ async def create_announcement(
         message=data.message,
         notification_type="info",
         entity_type="announcement",
+        entity_id=announcement.id,
         file_url=data.file_url,
     )
 
@@ -103,13 +104,18 @@ async def delete_announcement(
             status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found"
         )
 
-    await log_activity(
-        db,
-        title=f"Announcement Deleted: {announcement.title}",
-        author=current_user.name,
-        action_type="delete",
-        entity_type="announcement",
-        entity_id=announcement_id,
+    # Remove all notifications and activity logs related to this announcement
+    await db.execute(
+        delete(Notification).where(
+            Notification.entity_type == "announcement",
+            Notification.entity_id == announcement_id,
+        )
+    )
+    await db.execute(
+        delete(Activity).where(
+            Activity.entity_type == "announcement",
+            Activity.entity_id == announcement_id,
+        )
     )
 
     await db.delete(announcement)
