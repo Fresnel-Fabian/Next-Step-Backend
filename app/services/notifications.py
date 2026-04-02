@@ -20,6 +20,7 @@ async def broadcast_to_all(
     message: str,
     notification_type: str = "info",
     entity_type: str | None = None,
+    entity_id: int | None = None,
     file_url: str | None = None,
 ) -> int:
     """
@@ -30,7 +31,8 @@ async def broadcast_to_all(
         title: Notification title
         message: Notification body
         notification_type: info / success / warning / error
-        entity_type: announcement / document / poll / system
+        entity_type: announcement / document / poll / schedule_event / system
+        entity_id: ID of the source entity (enables cascade delete)
         file_url: Optional download link (for document notifications)
 
     Returns:
@@ -46,6 +48,7 @@ async def broadcast_to_all(
             message=message,
             type=notification_type,
             entity_type=entity_type,
+            entity_id=entity_id,
             file_url=file_url,
         )
         for uid in user_ids

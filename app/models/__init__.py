@@ -6,6 +6,7 @@ from app.models.poll import Poll, PollVote
 from app.models.notification import Notification
 from app.models.activity import Activity
 from app.models.announcement import Announcement
+from app.models.schedule_event import ScheduleEvent
 
 __all__ = [
     "User",
@@ -17,4 +18,5 @@ __all__ = [
     "Notification",
     "Activity",
     "Announcement",
+    "ScheduleEvent",
 ]
