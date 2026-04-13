@@ -5,7 +5,7 @@ Announcement routes.
 Endpoints:
 - GET  /api/v1/announcements       - List announcements (all authenticated)
 - POST /api/v1/announcements       - Create announcement (admin + teacher)
-- DELETE /api/v1/announcements/{id} - Delete announcement (admin only)
+- DELETE /api/v1/announcements/{id} - Delete (admin: any; teacher: own only)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,7 +14,7 @@ from sqlalchemy import select, delete
 
 from app.database import get_db
 from app.schemas.announcement import AnnouncementCreate, AnnouncementResponse
-from app.dependencies import get_current_user, require_admin, require_roles
+from app.dependencies import get_current_user, require_roles
 from app.models import User, Announcement, Notification, Activity
 from app.models.user import UserRole
 from app.services.activity import log_activity
@@ -89,10 +89,11 @@ async def create_announcement(
 async def delete_announcement(
     announcement_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
 ):
     """
-    Delete an announcement. Admin only.
+    Delete an announcement.
+    Admins may delete any announcement; teachers may delete only ones they created.
     """
     result = await db.execute(
         select(Announcement).where(Announcement.id == announcement_id)
@@ -102,6 +103,12 @@ async def delete_announcement(
     if not announcement:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found"
+        )
+
+    if current_user.role == UserRole.TEACHER and announcement.created_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete announcements you created",
         )
 
     # Remove all notifications and activity logs related to this announcement

@@ -14,7 +14,7 @@ Endpoints:
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import delete as sql_delete, func, select
 from datetime import datetime, timezone
 
 from app.database import get_db
@@ -293,11 +293,14 @@ async def delete_poll(
             status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
         )
 
-    await db.delete(poll)
+    title = poll.title
+    # Remove votes first, then poll (avoids ORM/async delete quirks with FKs)
+    await db.execute(sql_delete(PollVote).where(PollVote.poll_id == poll_id))
+    await db.execute(sql_delete(Poll).where(Poll.id == poll_id))
 
     await log_activity(
         db,
-        title=f"Poll Deleted: {poll.title}",
+        title=f"Poll Deleted: {title}",
         author=current_user.name,
         action_type="delete",
         entity_type="poll",
