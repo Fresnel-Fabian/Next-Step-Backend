@@ -43,9 +43,20 @@ class Settings(BaseSettings):
         "222-ios.apps.googleusercontent.com",
         "333-android.apps.googleusercontent.com",
     ]
-
     google_web_client_id: str = ""
     google_client_secret: str = ""
+
+    # Email (Gmail SMTP) Configuration
+    # mail_username: your Gmail address
+    # mail_password: your Gmail App Password (not your regular password)
+    # mail_from: sender address (defaults to mail_username if left empty)
+    # mail_from_name: display name shown in the email client
+    # frontend_url: base URL used to build invite links in emails
+    mail_username: str = ""
+    mail_password: str = ""
+    mail_from: str = ""        # defaults to mail_username if empty
+    mail_from_name: str = "Next Step"
+    frontend_url: str = "http://localhost:8081"
 
     class Config:
         """Pydantic configuration."""
