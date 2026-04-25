@@ -7,10 +7,11 @@ This stores metadata about documents:
 - Category (Policies, Forms, Handbooks, etc.)
 - File URL and size
 - Who uploaded it
+- Access level (ALL, TEACHERS, STUDENTS)
 """
 
 from sqlalchemy import String, Integer, DateTime, func, Text, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 from datetime import datetime
 
@@ -20,18 +21,13 @@ class Document(Base):
     Document database model.
 
     Stores metadata about uploaded documents.
-    The actual file is stored elsewhere (S3, local filesystem, etc.)
+    The actual file is stored on the local filesystem (uploads/)
     and we store the URL reference here.
 
-    Example:
-        Document(
-            title="Employee Handbook 2024",
-            category="Policies",
-            description="Complete guide for new employees",
-            file_url="https://s3.amazonaws.com/.../handbook.pdf",
-            file_size=2048576,  # 2MB in bytes
-            uploaded_by=1
-        )
+    access_level controls visibility:
+    - ALL      → everyone (admin, teachers, students)
+    - TEACHERS → admin + teachers only
+    - STUDENTS → admin + students only
     """
 
     __tablename__ = "documents"
@@ -40,40 +36,30 @@ class Document(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     # ========== DOCUMENT INFO ==========
-    # Document title
     title: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # Category for filtering
-    # e.g., "Policies", "Forms", "Handbooks", "Reports"
     category: Mapped[str] = mapped_column(
-        String(100), index=True, nullable=False  # Fast filtering by category
+        String(100), index=True, nullable=False
     )
 
-    # Optional description
-    description: Mapped[str | None] = mapped_column(
-        Text, nullable=True  # Text allows longer content than String
-    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ========== FILE INFO ==========
-    # URL where file is stored
-    file_url: Mapped[str] = mapped_column(
-        String(512), nullable=False  # URLs can be long
-    )
-
-    # File size in bytes
+    file_url: Mapped[str] = mapped_column(String(512), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, default=0)
 
-    # ========== RELATIONSHIPS ==========
-    # Who uploaded this document
-    uploaded_by: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), index=True  # References users table
+    # ========== ACCESS CONTROL ==========
+    access_level: Mapped[str] = mapped_column(
+        String(20), default="ALL", nullable=False
     )
 
-    # Relationship to User model (optional, for easy access)
-    # uploader: Mapped["User"] = relationship()
+    # ========== RELATIONSHIPS ==========
+    uploaded_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), index=True
+    )
 
     # ========== TIMESTAMPS ==========
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     def __repr__(self) -> str:
-        return f"<Document(id={self.id}, title={self.title}, category={self.category})>"
+        return f"<Document(id={self.id}, title={self.title}, access_level={self.access_level})>"

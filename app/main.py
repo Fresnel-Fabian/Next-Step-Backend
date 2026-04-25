@@ -19,7 +19,6 @@ from app.routers import (
     notifications,
     announcements,
 )
-from app.routers import invitations
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -100,9 +99,16 @@ async def http_exception_handler(request, exc):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     print("VALIDATION ERROR:", exc.errors())
+    errors = []
+    for e in exc.errors():
+        errors.append({
+            "loc": list(e.get("loc", [])),
+            "msg": str(e.get("msg", "")),
+            "type": str(e.get("type", "")),
+        })
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()},
+        content={"detail": errors},
         headers=cors_headers(request),
     )
 
@@ -130,7 +136,7 @@ app.include_router(documents.router)
 app.include_router(polls.router)
 app.include_router(notifications.router)
 app.include_router(announcements.router)
-app.include_router(invitations.router)
+
 
 @app.get("/health", tags=["Health"])
 async def health_check():
@@ -140,4 +146,3 @@ async def health_check():
 @app.get("/", tags=["Root"])
 async def root():
     return {"message": "School Management API", "version": "1.0.0", "docs": "/api/docs"}
-
