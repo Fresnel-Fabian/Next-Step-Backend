@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.schemas.poll import (
@@ -85,6 +86,11 @@ async def list_polls(
     query = query.order_by(Poll.created_at.desc())
     result = await db.execute(query)
     polls = result.scalars().all()
+    now = datetime.now(timezone.utc)
+    for poll in polls:
+        if poll.is_active and poll.expires_at and poll.expires_at.replace(tzinfo=timezone.utc) < now:
+            poll.is_active = False
+    await db.commit()
 
     return [await build_poll_response(db, poll) for poll in polls]
 
@@ -306,3 +312,38 @@ async def delete_poll(
 
     await db.commit()
     return {"message": "Poll deleted successfully"}
+
+class UpdateExpiryRequest(BaseModel):
+    expires_at: datetime
+
+
+@router.patch("/{poll_id}/expiry")
+async def update_poll_expiry(
+    poll_id: int,
+    data: UpdateExpiryRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Update the expiry date of a poll. Admin only."""
+    result = await db.execute(select(Poll).where(Poll.id == poll_id))
+    poll = result.scalar_one_or_none()
+
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    if not poll.is_active:
+        raise HTTPException(status_code=400, detail="Cannot update expiry of a closed poll")
+
+    poll.expires_at = data.expires_at
+
+    await log_activity(
+        db,
+        title=f"Poll Expiry Updated: {poll.title}",
+        author=current_user.name,
+        action_type="update",
+        entity_type="poll",
+        entity_id=poll_id,
+    )
+
+    await db.commit()
+    return {"message": "Poll expiry updated", "expires_at": poll.expires_at}
