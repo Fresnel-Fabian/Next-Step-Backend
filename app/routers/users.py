@@ -3,23 +3,23 @@
 User management routes.
 
 Endpoints:
-- PUT /api/v1/users/profile - Update current user's profile
-- GET /api/v1/users         - List all users (admin only)
-- GET /api/v1/users/{id}    - Get specific user
+- PUT   /api/v1/users/profile          - Update current user's profile
+- GET   /api/v1/users                  - List all users (admin only)
+- GET   /api/v1/users/{id}             - Get specific user
+- DELETE /api/v1/users/{id}            - Permanently delete user (admin only)
+- PATCH /api/v1/users/{id}/deactivate  - Deactivate user (admin only)
+- PATCH /api/v1/users/{id}/activate    - Reactivate user (admin only)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
 from app.schemas.user import UserUpdate, UserResponse
 from app.dependencies import get_current_user, require_admin
-from app.models.user import User
+from app.models.user import User, UserRole
 
-# ============================================
-# Create Router
-# ============================================
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 
@@ -32,30 +32,13 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-        Update the current user's profile.
-
-        Only updates fields that are provided (partial update).
-
-        Request body (all fields optional):
-    ```json
-        {
-            "name": "New Name",
-            "department": "New Department"
-        }
-    ```
-
-        Returns: Updated user profile
-    """
-    print("hello")
-    # Update only provided fields
+    """Update the current user's profile. Only updates fields that are provided."""
     if updates.name is not None:
         current_user.name = updates.name
 
     if updates.department is not None:
         current_user.department = updates.department
 
-    # Save changes
     await db.commit()
     await db.refresh(current_user)
 
@@ -67,38 +50,25 @@ async def update_profile(
 # ============================================
 @router.get("", response_model=list[UserResponse])
 async def list_users(
+    role: UserRole | None = Query(None, description="Filter by role: STUDENT, TEACHER, ADMIN"),
     department: str | None = Query(None, description="Filter by department"),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(50, ge=1, le=100, description="Max records to return"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(
-        require_admin
-    ),  # _ means we don't use the value, just check admin
+    _: User = Depends(require_admin),
 ):
-    """
-    List all users (admin only).
-
-    Query parameters:
-    - department: Filter by department name
-    - skip: Pagination offset (default: 0)
-    - limit: Max results (default: 50, max: 100)
-
-    Returns: List of users
-    """
+    """List all users. Optionally filter by role or department. Admin only."""
     query = select(User)
 
-    # Apply department filter if provided
+    if role:
+        query = query.where(User.role == role)
+
     if department:
         query = query.where(User.department == department)
 
-    # Apply pagination
-    query = query.offset(skip).limit(limit)
-
-    # Execute query
+    query = query.order_by(User.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    users = result.scalars().all()
-
-    return [UserResponse.from_user(u) for u in users]
+    return [UserResponse.from_user(u) for u in result.scalars().all()]
 
 
 # ============================================
@@ -108,18 +78,9 @@ async def list_users(
 async def get_user(
     user_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),  # Any authenticated user can view
+    _: User = Depends(get_current_user),
 ):
-    """
-    Get a specific user by ID.
-
-    Path parameters:
-    - user_id: The user's ID
-
-    Returns: User profile
-
-    Raises: 404 if user not found
-    """
+    """Get a specific user by ID."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -127,3 +88,102 @@ async def get_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     return UserResponse.from_user(user)
+
+
+# ============================================
+# DELETE /api/v1/users/{user_id} (Admin Only)
+# ============================================
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Permanently delete a user. Admin only.
+
+    Cannot delete yourself.
+    """
+    if int(admin.id) == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot delete your own account.",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.delete(user)
+    await db.commit()
+
+
+# ============================================
+# PATCH /api/v1/users/{user_id}/deactivate (Admin Only)
+# ============================================
+@router.patch("/{user_id}/deactivate")
+async def deactivate_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Deactivate a user account. Admin only.
+
+    The user will be blocked from logging in but their data is preserved.
+    Cannot deactivate yourself.
+    """
+    if int(admin.id) == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot deactivate your own account.",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already deactivated.",
+        )
+
+    user.is_active = False
+    await db.commit()
+
+    return {"message": f"{user.name}'s account has been deactivated."}
+
+
+# ============================================
+# PATCH /api/v1/users/{user_id}/activate (Admin Only)
+# ============================================
+@router.patch("/{user_id}/activate")
+async def activate_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """
+    Reactivate a previously deactivated user. Admin only.
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already active.",
+        )
+
+    user.is_active = True
+    await db.commit()
+
+    return {"message": f"{user.name}'s account has been reactivated."}

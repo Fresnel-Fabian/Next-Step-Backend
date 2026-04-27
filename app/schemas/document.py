@@ -10,13 +10,16 @@ Endpoints:
 
 from pydantic import BaseModel
 from datetime import datetime
+import enum
+
+
+class AccessLevel(str, enum.Enum):
+    ALL = "ALL"           # visible to everyone
+    TEACHERS = "TEACHERS" # visible to admin + teachers only
+    STUDENTS = "STUDENTS" # visible to admin + students only
 
 
 class DocumentBase(BaseModel):
-    """
-    Base schema with common document fields.
-    """
-
     title: str
     category: str
     description: str | None = None
@@ -26,20 +29,19 @@ class DocumentCreate(DocumentBase):
     """
     Schema for creating a new document.
 
-    Request body for POST /api/v1/documents
-
     Example:
     {
         "title": "Employee Handbook 2024",
         "category": "Policies",
         "description": "Complete guide for new employees",
         "file_url": "https://storage.example.com/handbook.pdf",
-        "file_size": 2048576
+        "file_size": 2048576,
+        "access_level": "ALL"
     }
     """
-
     file_url: str
     file_size: int = 0
+    access_level: AccessLevel = AccessLevel.ALL
 
     model_config = {
         "json_schema_extra": {
@@ -49,6 +51,7 @@ class DocumentCreate(DocumentBase):
                 "description": "Complete guide for new employees",
                 "file_url": "https://storage.example.com/handbook.pdf",
                 "file_size": 2048576,
+                "access_level": "ALL",
             }
         }
     }
@@ -67,18 +70,19 @@ class DocumentResponse(BaseModel):
         "fileUrl": "https://...",
         "fileSize": 2048576,
         "uploadedBy": 1,
+        "accessLevel": "ALL",
         "createdAt": "2024-01-15T10:30:00Z"
     }
     """
-
     id: int
     title: str
     category: str
     description: str | None
-    fileUrl: str  # camelCase
-    fileSize: int  # camelCase
-    uploadedBy: int  # camelCase
-    createdAt: datetime  # camelCase
+    fileUrl: str
+    fileSize: int
+    uploadedBy: int
+    accessLevel: AccessLevel
+    createdAt: datetime
 
     model_config = {"from_attributes": True}
 
@@ -93,5 +97,6 @@ class DocumentResponse(BaseModel):
             fileUrl=doc.file_url,
             fileSize=doc.file_size,
             uploadedBy=doc.uploaded_by,
+            accessLevel=doc.access_level or AccessLevel.ALL,
             createdAt=doc.created_at,
         )

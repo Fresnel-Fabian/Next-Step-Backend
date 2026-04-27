@@ -7,6 +7,7 @@ from app.models.notification import Notification
 from app.models.activity import Activity
 from app.models.announcement import Announcement
 from app.models.schedule_event import ScheduleEvent
+from app.models.invitation import Invitation, InvitationStatus
 
 __all__ = [
     "User",
@@ -19,4 +20,6 @@ __all__ = [
     "Activity",
     "Announcement",
     "ScheduleEvent",
+    "Invitation",
+    "InvitationStatus",
 ]

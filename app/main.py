@@ -1,12 +1,10 @@
 # app/main.py
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException as FastAPIHTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import logging
 import os
-
-
 
 from app.database import engine, Base
 from app.config import get_settings
@@ -32,12 +30,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+ALLOWED_ORIGINS = [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:19006",
+    "http://127.0.0.1:19006",
+]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
 
-    # Create uploads directory if it doesn't exist
     os.makedirs("uploads", exist_ok=True)
 
     async with engine.begin() as conn:
@@ -60,29 +64,69 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    print("VALIDATION ERROR:", exc.errors())
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
-# CORS
+
+# 1. Middleware (must be first)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8081",
-        "http://127.0.0.1:8081",
-        "http://localhost:19006",
-        "http://127.0.0.1:19006",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
-# Serve uploaded files as static files
-# e.g. GET http://localhost:8000/uploads/filename.pdf
+
+# 2. Exception handlers
+def cors_headers(request):
+    origin = request.headers.get("origin", "")
+    if origin in ALLOWED_ORIGINS:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+        }
+    return {}
+
+
+@app.exception_handler(FastAPIHTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=cors_headers(request),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    print("VALIDATION ERROR:", exc.errors())
+    errors = []
+    for e in exc.errors():
+        errors.append({
+            "loc": list(e.get("loc", [])),
+            "msg": str(e.get("msg", "")),
+            "type": str(e.get("type", "")),
+        })
+    return JSONResponse(
+        status_code=422,
+        content={"detail": errors},
+        headers=cors_headers(request),
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request, exc):
+    logger.error(f"Unhandled error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=cors_headers(request),
+    )
+
+
+# 3. Static mounts
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Routers
+# 4. Routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(dashboard.router)

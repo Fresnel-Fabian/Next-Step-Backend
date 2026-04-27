@@ -151,3 +151,58 @@ async def get_or_create_google_user(db: AsyncSession, google_data: dict) -> User
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def get_or_create_google_user(db: AsyncSession, google_data: dict) -> User:
+    """Find existing user or create new one from Google data."""
+    from app.models.invitation import Invitation, InvitationStatus
+
+    # 1. Find by google_id
+    result = await db.execute(
+        select(User).where(User.google_id == google_data["google_id"])
+    )
+    user = result.scalar_one_or_none()
+    if user:
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    # 2. Find by email (link google_id to existing account)
+    result = await db.execute(select(User).where(User.email == google_data["email"]))
+    user = result.scalar_one_or_none()
+    if user:
+        user.google_id = google_data["google_id"]
+        if not user.avatar and google_data.get("avatar"):
+            user.avatar = google_data["avatar"]
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    # 3. New user — check if they have a valid invite
+    email = google_data["email"].lower()
+    invite_result = await db.execute(
+        select(Invitation).where(
+            Invitation.email == email,
+            Invitation.status == InvitationStatus.PENDING,
+        )
+    )
+    invite = invite_result.scalar_one_or_none()
+
+    if invite and invite.is_valid():
+        role = invite.role
+        invite.status = InvitationStatus.ACCEPTED  # mark as used
+    else:
+        role = UserRole.ADMIN  # existing behaviour for non-invited users
+
+    user = User(
+        email=google_data["email"],
+        name=google_data["name"],
+        google_id=google_data["google_id"],
+        avatar=google_data.get("avatar"),
+        role=role,
+        hashed_password=None,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
