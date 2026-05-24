@@ -1,7 +1,7 @@
-# Create or edit .gitignore
-cat >> .gitignore << EOF
 # Environment variables
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -12,6 +12,14 @@ __pycache__/
 .venv/
 venv/
 ENV/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
 
 # Database
 *.db
@@ -22,16 +30,20 @@ ENV/
 .idea/
 *.swp
 *.swo
+.DS_Store
 
 # Celery
 celerybeat-schedule
 celerybeat.pid
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-EOFuploads/ 
-curl 
-docker 
-net 
+# k6 output
+summary.json
+loadtests/**/summary.json
+*.k6-results.json
+
+# Uploads (runtime user data, not source)
+uploads/
+!uploads/.gitkeep
+
+# Logs
+*.log
