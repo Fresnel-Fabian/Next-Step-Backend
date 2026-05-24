@@ -1,0 +1,57 @@
+name: Spike test (staging)
+
+# Dispatch-only until staging is set up. Spike tests are short (~5 min) and
+# best run against staging where autoscaling behavior is real. Running on the
+# CI runner against ephemeral docker-compose mostly tests the runner's CPU
+# limits, not the app's recovery behavior.
+#
+# Once staging exists, consider adding a schedule (e.g. monthly) or trigger
+# this on demand before traffic-bursting events (announcements, term start).
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Override staging URL (default: STAGING_URL secret)"
+        required: false
+        type: string
+
+concurrency:
+  group: spike-test
+  cancel-in-progress: false
+
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify staging URL is configured
+        run: |
+          URL="${{ inputs.base_url || secrets.STAGING_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::No staging URL. Set the STAGING_URL secret or pass base_url input."
+            exit 1
+          fi
+          echo "BASE_URL=$URL" >> $GITHUB_ENV
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 spike test
+        run: k6 run loadtests/scenarios/dashboard_flow.js
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          PROFILE: spike
+          TEST_USER: ${{ secrets.STAGING_TEST_USER }}
+          TEST_PASS: ${{ secrets.STAGING_TEST_PASS }}
+
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-spike-summary
+          path: summary.json
+          if-no-files-found: warn

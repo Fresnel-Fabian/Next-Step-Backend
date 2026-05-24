@@ -1,0 +1,104 @@
+name: Load test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: loadtest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  loadtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: school_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/school_db
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-only-not-a-real-secret-do-not-reuse
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+
+      - name: Seed test users
+        run: uv run python seed.py
+
+      - name: Start backend
+        run: |
+          uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo $! > backend.pid
+
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/api/docs > /dev/null; then
+              echo "Backend up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 load test
+        run: k6 run loadtests/scenarios/dashboard_flow.js
+        env:
+          BASE_URL: http://localhost:8000
+          PROFILE: load
+          TEST_USER: student@school.edu
+          TEST_PASS: studentpass123
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then
+            kill $(cat backend.pid) || true
+          fi
+
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: summary.json
+          if-no-files-found: warn

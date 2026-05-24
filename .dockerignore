@@ -1,0 +1,44 @@
+# VCS
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*.so
+.Python
+.venv
+venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Local dev artifacts
+uploads/*
+!uploads/.gitkeep
+psql
+*.db
+*.sqlite3
+
+# Tests & docs not needed at runtime
+tests
+test_*.py
+loadtests
+*.md
+docker-compose.yml
+start.sh
+Dockerfile
+.dockerignore
