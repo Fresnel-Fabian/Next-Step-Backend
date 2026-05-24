@@ -10,8 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/app/.venv
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
@@ -39,14 +39,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/.venv/bin:$PATH"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libpq5 \
-        curl \
+    libpq5 \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 1000 app
 
 WORKDIR /app
 
 COPY --from=builder --chown=app:app /app /app
+
+RUN mkdir -p /app/uploads && chown -R app:app /app
 
 USER app
 
