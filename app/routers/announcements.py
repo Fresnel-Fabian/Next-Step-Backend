@@ -9,14 +9,14 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
 
 from app.database import get_db
-from app.schemas.announcement import AnnouncementCreate, AnnouncementResponse
 from app.dependencies import get_current_user, require_admin, require_roles
-from app.models import User, Announcement, Notification, Activity
+from app.models import Activity, Announcement, Notification, User
 from app.models.user import UserRole
+from app.schemas.announcement import AnnouncementCreate, AnnouncementResponse
 from app.services.activity import log_activity
 from app.services.notifications import broadcast_to_all
 
@@ -31,9 +31,7 @@ async def list_announcements(
     """
     List all announcements. Visible to all authenticated users.
     """
-    result = await db.execute(
-        select(Announcement).order_by(Announcement.created_at.desc())
-    )
+    result = await db.execute(select(Announcement).order_by(Announcement.created_at.desc()))
     announcements = result.scalars().all()
     return [AnnouncementResponse.from_announcement(a) for a in announcements]
 
@@ -60,7 +58,7 @@ async def create_announcement(
     await db.flush()
 
     # Broadcast notification to all users
-    count = await broadcast_to_all(
+    await broadcast_to_all(
         db,
         title=f"Announcement: {data.title}",
         message=data.message,
@@ -94,15 +92,11 @@ async def delete_announcement(
     """
     Delete an announcement. Admin only.
     """
-    result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
-    )
+    result = await db.execute(select(Announcement).where(Announcement.id == announcement_id))
     announcement = result.scalar_one_or_none()
 
     if not announcement:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
 
     # Remove all notifications and activity logs related to this announcement
     await db.execute(

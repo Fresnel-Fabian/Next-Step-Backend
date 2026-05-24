@@ -9,8 +9,9 @@ Endpoints:
 - DELETE /api/v1/schedules/{id}
 """
 
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class ScheduleBase(BaseModel):

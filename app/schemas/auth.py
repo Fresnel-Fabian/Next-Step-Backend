@@ -11,7 +11,6 @@ ref: https://developers.google.com/identity/protocols/oauth2/native-app
 """
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional
 
 
 class LoginRequest(BaseModel):
@@ -107,6 +106,6 @@ class TokenData(BaseModel):
 
 
 # Import at bottom to avoid circular import
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse  # noqa: E402
 
 Token.model_rebuild()

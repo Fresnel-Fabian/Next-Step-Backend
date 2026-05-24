@@ -1,8 +1,10 @@
 # app/models/announcement.py
-from sqlalchemy import String, DateTime, func, ForeignKey, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.database import Base
 from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
 
 
 class Announcement(Base):
@@ -18,13 +20,9 @@ class Announcement(Base):
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Who created this announcement (admin or teacher)
-    created_by: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     creator: Mapped["User"] = relationship("User", foreign_keys=[created_by])
 

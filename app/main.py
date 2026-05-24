@@ -1,26 +1,32 @@
 # app/main.py
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException as FastAPIHTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import logging
 import os
+from contextlib import asynccontextmanager
 
-from app.database import engine, Base
-from app.config import get_settings
-from app.routers import (
-    auth,
-    users,
-    dashboard,
-    schedules,
-    schedule_events,
-    documents,
-    polls,
-    notifications,
-    announcements,
-)
+import sentry_sdk
+from fastapi import FastAPI, status
+from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+from sqlalchemy import text
+
+from app.config import get_settings
+from app.database import Base, engine
+from app.routers import (
+    announcements,
+    auth,
+    dashboard,
+    documents,
+    notifications,
+    polls,
+    schedule_events,
+    schedules,
+    users,
+)
 
 settings = get_settings()
 
@@ -30,24 +36,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-ALLOWED_ORIGINS = [
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:19006",
-    "http://127.0.0.1:19006",
-]
+ALLOWED_ORIGINS = settings.allowed_origins_list
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        send_default_pii=False,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+    )
+    logger.info("Sentry enabled (env=%s)", settings.environment)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting application...")
+    logger.info("Starting application (env=%s)...", settings.environment)
 
     os.makedirs("uploads", exist_ok=True)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    logger.info("Database tables created/verified")
+    # In dev only: auto-create tables for fast iteration.
+    # In staging/prod, Alembic is the source of truth — run `alembic upgrade head` on deploy.
+    if settings.debug:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Dev mode: tables auto-created via Base.metadata.create_all")
 
     yield
 
@@ -98,14 +111,16 @@ async def http_exception_handler(request, exc):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    print("VALIDATION ERROR:", exc.errors())
+    logger.warning("Validation error: %s", exc.errors())
     errors = []
     for e in exc.errors():
-        errors.append({
-            "loc": list(e.get("loc", [])),
-            "msg": str(e.get("msg", "")),
-            "type": str(e.get("type", "")),
-        })
+        errors.append(
+            {
+                "loc": list(e.get("loc", [])),
+                "msg": str(e.get("msg", "")),
+                "type": str(e.get("type", "")),
+            }
+        )
     return JSONResponse(
         status_code=422,
         content={"detail": errors},
@@ -140,7 +155,17 @@ app.include_router(announcements.router)
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {"status": "healthy", "version": "1.0.0"}
+    """Liveness + DB connectivity. Used by load balancers and orchestrators."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error("Health check DB failure: %s", exc)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy", "db": "unreachable"},
+        )
+    return {"status": "healthy", "db": "ok", "version": "1.0.0"}
 
 
 @app.get("/", tags=["Root"])

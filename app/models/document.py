@@ -10,10 +10,12 @@ This stores metadata about documents:
 - Access level (ALL, TEACHERS, STUDENTS)
 """
 
-from sqlalchemy import String, Integer, DateTime, func, Text, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
-from app.database import Base
 from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
 
 
 class Document(Base):
@@ -38,9 +40,7 @@ class Document(Base):
     # ========== DOCUMENT INFO ==========
     title: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    category: Mapped[str] = mapped_column(
-        String(100), index=True, nullable=False
-    )
+    category: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
 
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -49,14 +49,10 @@ class Document(Base):
     file_size: Mapped[int] = mapped_column(Integer, default=0)
 
     # ========== ACCESS CONTROL ==========
-    access_level: Mapped[str] = mapped_column(
-        String(20), default="ALL", nullable=False
-    )
+    access_level: Mapped[str] = mapped_column(String(20), default="ALL", nullable=False)
 
     # ========== RELATIONSHIPS ==========
-    uploaded_by: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), index=True
-    )
+    uploaded_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
 
     # ========== TIMESTAMPS ==========
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

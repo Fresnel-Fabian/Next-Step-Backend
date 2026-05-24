@@ -5,19 +5,19 @@ Services package.
 Business logic separated from routes.
 """
 
+from app.services.activity import log_activity
 from app.services.auth import (
-    hash_password,
-    verify_password,
+    authenticate_user,
     create_access_token,
     decode_token,
-    authenticate_user,
+    hash_password,
+    verify_password,
 )
 from app.services.google_auth import (
     GoogleAuthError,
     exchange_google_code,
     get_or_create_google_user,
 )
-from app.services.activity import log_activity
 
 __all__ = [
     # Auth

@@ -8,10 +8,11 @@ Used by:
 - polls router (when admin creates a poll)
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.user import User
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.notification import Notification
+from app.models.user import User
 
 
 async def broadcast_to_all(

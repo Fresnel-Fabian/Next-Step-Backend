@@ -1,13 +1,14 @@
 # app/routers/dashboard.py
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from datetime import datetime, timedelta
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
-from app.schemas.dashboard import DashboardStats, ActivityItem
 from app.dependencies import get_current_user, require_admin
-from app.models import User, Schedule, Document, Notification, Activity
+from app.models import Activity, Document, Notification, Schedule, User
+from app.schemas.dashboard import ActivityItem, DashboardStats
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -22,9 +23,7 @@ async def get_stats(
     now = datetime.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    new_staff = await db.scalar(
-        select(func.count(User.id)).where(User.created_at >= month_start)
-    )
+    new_staff = await db.scalar(select(func.count(User.id)).where(User.created_at >= month_start))
 
     active_schedules = await db.scalar(
         select(func.count(Schedule.id)).where(Schedule.status == "Active")
@@ -33,9 +32,7 @@ async def get_stats(
     thirty_days_ago = now - timedelta(days=30)
 
     notifications_sent = await db.scalar(
-        select(func.count(Notification.id)).where(
-            Notification.created_at >= thirty_days_ago
-        )
+        select(func.count(Notification.id)).where(Notification.created_at >= thirty_days_ago)
     )
 
     total_documents = await db.scalar(select(func.count(Document.id)))
@@ -55,9 +52,7 @@ async def get_activity(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Activity).order_by(Activity.timestamp.desc()).limit(limit)
-    )
+    result = await db.execute(select(Activity).order_by(Activity.timestamp.desc()).limit(limit))
     activities = result.scalars().all()
 
     return [
@@ -79,9 +74,7 @@ async def delete_activity(
     activity = result.scalar_one_or_none()
 
     if not activity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
 
     await db.delete(activity)
     await db.commit()

@@ -11,19 +11,21 @@ Endpoints:
 """
 
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete as sa_delete
 
 from app.database import get_db
+from app.dependencies import get_current_user, require_admin
+from app.models import Activity, Notification, User
+from app.models.schedule_event import ScheduleEvent
 from app.schemas.schedule_event import (
     ScheduleEventCreate,
-    ScheduleEventUpdate,
     ScheduleEventResponse,
+    ScheduleEventUpdate,
 )
-from app.dependencies import get_current_user, require_admin
-from app.models import User, Notification, Activity
-from app.models.schedule_event import ScheduleEvent
 from app.services.activity import log_activity
 
 router = APIRouter(prefix="/api/v1/schedule-events", tags=["Schedule Events"])
@@ -37,9 +39,7 @@ async def list_schedule_events(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    query = select(ScheduleEvent).order_by(
-        ScheduleEvent.date, ScheduleEvent.start_time
-    )
+    query = select(ScheduleEvent).order_by(ScheduleEvent.date, ScheduleEvent.start_time)
 
     if date:
         query = query.where(ScheduleEvent.date == date)
@@ -61,9 +61,7 @@ async def get_schedule_event(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(ScheduleEvent).where(ScheduleEvent.id == event_id)
-    )
+    result = await db.execute(select(ScheduleEvent).where(ScheduleEvent.id == event_id))
     event = result.scalar_one_or_none()
     if not event:
         raise HTTPException(
@@ -116,9 +114,7 @@ async def update_schedule_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    result = await db.execute(
-        select(ScheduleEvent).where(ScheduleEvent.id == event_id)
-    )
+    result = await db.execute(select(ScheduleEvent).where(ScheduleEvent.id == event_id))
     event = result.scalar_one_or_none()
     if not event:
         raise HTTPException(
@@ -166,9 +162,7 @@ async def delete_schedule_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    result = await db.execute(
-        select(ScheduleEvent).where(ScheduleEvent.id == event_id)
-    )
+    result = await db.execute(select(ScheduleEvent).where(ScheduleEvent.id == event_id))
     event = result.scalar_one_or_none()
     if not event:
         raise HTTPException(

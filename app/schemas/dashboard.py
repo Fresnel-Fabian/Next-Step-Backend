@@ -7,8 +7,9 @@ These match your frontend API specification:
 - GET /api/v1/dashboard/activity
 """
 
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class DashboardStats(BaseModel):

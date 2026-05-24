@@ -16,20 +16,21 @@ Poll options are stored as JSON for flexibility:
 }
 """
 
-from sqlalchemy import (
-    String,
-    Integer,
-    DateTime,
-    func,
-    ForeignKey,
-    Boolean,
-    JSON,
-    UniqueConstraint,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.database import Base
 from datetime import datetime
 
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
 
 
 class Poll(Base):
@@ -50,19 +51,13 @@ class Poll(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # timezone=True required for safe comparison with datetime.now(timezone.utc)
-    expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ========== OWNERSHIP ==========
-    created_by: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
 
     # ========== TIMESTAMPS ==========
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # ========== RELATIONSHIPS ==========
     votes: Mapped[list["PollVote"]] = relationship(
@@ -87,25 +82,19 @@ class PollVote(Base):
     )
 
     # ForeignKey added so SQLAlchemy can join with User for results endpoint
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
 
     option_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # ========== TIMESTAMPS ==========
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # ========== RELATIONSHIPS ==========
     poll: Mapped["Poll"] = relationship(back_populates="votes")
     user: Mapped["User"] = relationship("User")
 
     # ========== CONSTRAINTS ==========
-    __table_args__ = (
-        UniqueConstraint("poll_id", "user_id", name="unique_user_poll_vote"),
-    )
+    __table_args__ = (UniqueConstraint("poll_id", "user_id", name="unique_user_poll_vote"),)
 
     def __repr__(self) -> str:
         return f"<PollVote(poll_id={self.poll_id}, user_id={self.user_id}, option_id={self.option_id})>"

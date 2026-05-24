@@ -1,13 +1,16 @@
 # app/models/invitation.py
 import secrets
-import enum
-from datetime import datetime, timedelta
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SAEnum
+from datetime import datetime
+from enum import StrEnum
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 
-class InvitationStatus(str, enum.Enum):
+class InvitationStatus(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
 
@@ -38,7 +41,4 @@ class Invitation(Base):
 
     def is_valid(self) -> bool:
         """Check if invite is still pending and not expired."""
-        return (
-            self.status == InvitationStatus.PENDING
-            and datetime.utcnow() < self.expires_at
-        )
+        return self.status == InvitationStatus.PENDING and datetime.utcnow() < self.expires_at

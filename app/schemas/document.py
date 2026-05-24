@@ -8,15 +8,16 @@ Endpoints:
 - DELETE /api/v1/documents/{id}
 """
 
-from pydantic import BaseModel
 from datetime import datetime
-import enum
+from enum import StrEnum
+
+from pydantic import BaseModel
 
 
-class AccessLevel(str, enum.Enum):
-    ALL = "ALL"           # visible to everyone
-    TEACHERS = "TEACHERS" # visible to admin + teachers only
-    STUDENTS = "STUDENTS" # visible to admin + students only
+class AccessLevel(StrEnum):
+    ALL = "ALL"  # visible to everyone
+    TEACHERS = "TEACHERS"  # visible to admin + teachers only
+    STUDENTS = "STUDENTS"  # visible to admin + students only
 
 
 class DocumentBase(BaseModel):
@@ -39,6 +40,7 @@ class DocumentCreate(DocumentBase):
         "access_level": "ALL"
     }
     """
+
     file_url: str
     file_size: int = 0
     access_level: AccessLevel = AccessLevel.ALL
@@ -74,6 +76,7 @@ class DocumentResponse(BaseModel):
         "createdAt": "2024-01-15T10:30:00Z"
     }
     """
+
     id: int
     title: str
     category: str

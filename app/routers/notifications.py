@@ -10,14 +10,14 @@ Endpoints:
 - POST  /api/v1/notifications/send         - Send notification (admin)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
 
 from app.database import get_db
-from app.schemas.notification import NotificationCreate, NotificationResponse
 from app.dependencies import get_current_user, require_admin
-from app.models import User, Notification
+from app.models import Notification, User
+from app.schemas.notification import NotificationCreate, NotificationResponse
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["Notifications"])
 
@@ -102,9 +102,7 @@ async def mark_as_read(
     notification = result.scalar_one_or_none()
 
     if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
     notification.is_read = True
     await db.commit()
@@ -157,9 +155,7 @@ async def send_notification(
     # Verify target user exists
     target_user = await db.execute(select(User).where(User.id == data.user_id))
     if not target_user.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Target user not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target user not found")
 
     notification = Notification(
         user_id=data.user_id, title=data.title, message=data.message, type=data.type
@@ -176,9 +172,7 @@ async def send_notification(
 async def broadcast_notification(
     title: str = Query(..., description="Notification title"),
     message: str = Query(..., description="Notification message"),
-    notification_type: str = Query(
-        "info", description="Type: info, success, warning, error"
-    ),
+    notification_type: str = Query("info", description="Type: info, success, warning, error"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),  # Admin only!
 ):
@@ -214,6 +208,7 @@ async def broadcast_notification(
         "count": len(user_ids),
     }
 
+
 @router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_notification(
     notification_id: int,
@@ -230,9 +225,7 @@ async def delete_notification(
     notification = result.scalar_one_or_none()
 
     if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
     await db.delete(notification)
     await db.commit()
