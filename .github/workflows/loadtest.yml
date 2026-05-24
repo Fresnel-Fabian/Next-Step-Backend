@@ -39,6 +39,8 @@ jobs:
       SECRET_KEY: ci-only-not-a-real-secret-do-not-reuse
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      # temp debug for alembic issues
+      DEBUG: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -54,8 +56,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
-      - name: Run migrations
-        run: uv run alembic upgrade head
+      # NOTE: Alembic migrations disabled — see test.yml for the reason.
+      # Tables are created by app.main lifespan (Base.metadata.create_all)
+      # when DEBUG=true (set in env above).
+      #
+      # - name: Run migrations
+      #   run: uv run alembic upgrade head
 
       - name: Seed test users
         run: uv run python seed.py

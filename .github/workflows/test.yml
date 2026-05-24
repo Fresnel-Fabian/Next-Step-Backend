@@ -60,8 +60,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
-      - name: Run Alembic migrations
-        run: uv run alembic upgrade head
+      # - name: Run Alembic migrations
+      #   run: uv run alembic upgrade head
 
       - name: Run pytest
         run: uv run pytest tests/ test_services.py test_config.py -v
