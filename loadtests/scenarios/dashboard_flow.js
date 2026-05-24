@@ -1,5 +1,6 @@
-// Mixed read workload: login once per VU, then hit dashboard + schedules.
-// Profile is selected by PROFILE env var (load | stress | soak).
+// Mixed read workload modeling a typical "user opens the app" flow:
+// login once per VU, then hit dashboard stats + recent activity + schedules.
+// Profile is selected by PROFILE env var (load | stress | soak | spike).
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { login } from '../lib/auth.js';
@@ -29,9 +30,14 @@ export default function (data) {
     'Content-Type': 'application/json',
   };
 
-  group('dashboard', () => {
-    const res = http.get(`${BASE_URL}/api/v1/dashboard`, { headers });
-    check(res, { 'dashboard 200': (r) => r.status === 200 });
+  group('dashboard_stats', () => {
+    const res = http.get(`${BASE_URL}/api/v1/dashboard/stats`, { headers });
+    check(res, { 'dashboard stats 200': (r) => r.status === 200 });
+  });
+
+  group('dashboard_activity', () => {
+    const res = http.get(`${BASE_URL}/api/v1/dashboard/activity`, { headers });
+    check(res, { 'dashboard activity 200': (r) => r.status === 200 });
   });
 
   group('schedules', () => {

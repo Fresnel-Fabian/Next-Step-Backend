@@ -11,7 +11,7 @@ export function login(email, password) {
 
   check(res, { 'login 200': (r) => r.status === 200 });
 
-  const token = res.json('access_token');
+  const token = res.json('token');
   if (!token) {
     throw new Error(`login failed: ${res.status} ${res.body}`);
   }
