@@ -12,7 +12,7 @@ cd next-step-backend
 
 cp .env.example .env          # add your credentials
 uv sync                       # install dependencies
-alembic upgrade head          # run migrations
+uv run alembic upgrade head   # run migrations
 
 uv run uvicorn app.main:app --reload
 ```
