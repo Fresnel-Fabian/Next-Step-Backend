@@ -97,13 +97,13 @@ REDIS_URL=redis://localhost:6379/0
 ### 4. Run Migrations
 
 ```bash
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
 To create a new migration after changing a model:
 ```bash
-alembic revision --autogenerate -m "describe your change"
-alembic upgrade head
+uv run alembic revision --autogenerate -m "describe your change"
+uv run alembic upgrade head
 ```
 
 ---
