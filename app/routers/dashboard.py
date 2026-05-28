@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
-from app.models import Activity, Document, Notification, Schedule, User
+from app.models import Activity, User, ScheduleEvent, Poll
 from app.schemas.dashboard import ActivityItem, DashboardStats
+from app.models.user import UserRole
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -18,31 +19,51 @@ async def get_stats(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    total_staff = await db.scalar(select(func.count(User.id)))
-
     now = datetime.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    new_staff = await db.scalar(select(func.count(User.id)).where(User.created_at >= month_start))
+    # Teachers
+    total_teachers = await db.scalar(
+        select(func.count(User.id)).where(User.role == UserRole.TEACHER)
+    )
+    new_teachers = await db.scalar(
+        select(func.count(User.id)).where(
+            User.role == UserRole.TEACHER,
+            User.created_at >= month_start,
+        )
+    )
 
+    # Students
+    total_students = await db.scalar(
+        select(func.count(User.id)).where(User.role == UserRole.STUDENT)
+    )
+    new_students = await db.scalar(
+        select(func.count(User.id)).where(
+            User.role == UserRole.STUDENT,
+            User.created_at >= month_start,
+        )
+    )
+
+    # Upcoming schedule events (today and future)
+    today = now.strftime("%Y-%m-%d")
     active_schedules = await db.scalar(
-        select(func.count(Schedule.id)).where(Schedule.status == "Active")
+        select(func.count(ScheduleEvent.id)).where(ScheduleEvent.date >= today)
     )
 
-    thirty_days_ago = now - timedelta(days=30)
-
-    notifications_sent = await db.scalar(
-        select(func.count(Notification.id)).where(Notification.created_at >= thirty_days_ago)
+    # Active Polls
+    active_polls = await db.scalar(
+        select(func.count(Poll.id)).where(Poll.is_active == True)
     )
-
-    total_documents = await db.scalar(select(func.count(Document.id)))
 
     return DashboardStats(
-        totalStaff=total_staff or 0,
-        staffTrend=f"+{new_staff or 0} this month",
+        totalTeachers=total_teachers or 0,
+        teachersTrend=f"+{new_teachers or 0} this month",
+        totalStudents=total_students or 0,
+        studentsTrend=f"+{new_students or 0} this month",
         activeSchedules=active_schedules or 0,
-        notificationsSent=notifications_sent or 0,
-        totalDocuments=total_documents or 0,
+        schedulesTrend="upcoming events",
+        activePolls=active_polls or 0,
+        pollsTrend="currently open",
     )
 
 
@@ -54,7 +75,6 @@ async def get_activity(
 ):
     result = await db.execute(select(Activity).order_by(Activity.timestamp.desc()).limit(limit))
     activities = result.scalars().all()
-
     return [
         ActivityItem(id=a.id, title=a.title, author=a.author, timestamp=a.timestamp)
         for a in activities
@@ -67,9 +87,6 @@ async def delete_activity(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """
-    Delete a single activity item. Admin only.
-    """
     result = await db.execute(select(Activity).where(Activity.id == activity_id))
     activity = result.scalar_one_or_none()
 
@@ -86,14 +103,8 @@ async def delete_all_activity(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """
-    Delete all activity items. Admin only.
-    """
     result = await db.execute(select(Activity))
-    activities = result.scalars().all()
-
-    for activity in activities:
+    for activity in result.scalars().all():
         await db.delete(activity)
-
     await db.commit()
     return None
