@@ -1,15 +1,15 @@
 # app/routers/dashboard.py
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from datetime import datetime, timedelta
 
 from app.database import get_db
-from app.schemas.dashboard import DashboardStats, ActivityItem
 from app.dependencies import get_current_user, require_admin
-from app.models import User, Schedule, Document, Activity, Poll
-from app.models.schedule_event import ScheduleEvent
+from app.models import Activity, Poll, ScheduleEvent, User
 from app.models.user import UserRole
+from app.schemas.dashboard import ActivityItem, DashboardStats
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -51,9 +51,7 @@ async def get_stats(
     )
 
     # Active Polls
-    active_polls = await db.scalar(
-        select(func.count(Poll.id)).where(Poll.is_active == True)
-    )
+    active_polls = await db.scalar(select(func.count(Poll.id)).where(Poll.is_active == True))
 
     return DashboardStats(
         totalTeachers=total_teachers or 0,
@@ -73,9 +71,7 @@ async def get_activity(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Activity).order_by(Activity.timestamp.desc()).limit(limit)
-    )
+    result = await db.execute(select(Activity).order_by(Activity.timestamp.desc()).limit(limit))
     activities = result.scalars().all()
     return [
         ActivityItem(id=a.id, title=a.title, author=a.author, timestamp=a.timestamp)
@@ -93,9 +89,7 @@ async def delete_activity(
     activity = result.scalar_one_or_none()
 
     if not activity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
 
     await db.delete(activity)
     await db.commit()

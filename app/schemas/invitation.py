@@ -1,6 +1,8 @@
 # app/schemas/invitation.py
-from pydantic import BaseModel, EmailStr
 from datetime import datetime
+
+from pydantic import BaseModel, EmailStr
+
 from app.models.invitation import InvitationStatus
 from app.models.user import UserRole
 
@@ -21,6 +23,6 @@ class InvitationResponse(BaseModel):
 
 
 class BulkInviteResponse(BaseModel):
-    invited: list[str]   # successfully invited
-    skipped: list[str]   # already a user or already has pending invite
-    failed: list[str]    # invalid emails or other errors
+    invited: list[str]  # successfully invited
+    skipped: list[str]  # already a user or already has pending invite
+    failed: list[str]  # invalid emails or other errors

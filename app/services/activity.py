@@ -6,6 +6,7 @@ Provides a simple function to log activities from anywhere in the app.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.activity import Activity
 
 

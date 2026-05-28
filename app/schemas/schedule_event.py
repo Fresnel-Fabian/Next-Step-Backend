@@ -1,6 +1,7 @@
 # app/schemas/schedule_event.py
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class ScheduleEventCreate(BaseModel):
@@ -67,6 +68,7 @@ class ScheduleEventResponse(BaseModel):
     @classmethod
     def from_event(cls, event) -> "ScheduleEventResponse":
         import json
+
         students = []
         if event.students_json:
             try:

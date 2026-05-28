@@ -7,12 +7,12 @@ All route modules are exported here for easy importing.
 
 from app.routers import (
     auth,
-    users,
     dashboard,
-    schedules,
     documents,
-    polls,
     notifications,
+    polls,
+    schedules,
+    users,
 )
 
 __all__ = [

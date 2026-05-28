@@ -12,13 +12,13 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.schemas.user import UserUpdate, UserResponse
 from app.dependencies import get_current_user, require_admin
 from app.models.user import User, UserRole
+from app.schemas.user import UserResponse, UserUpdate
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 

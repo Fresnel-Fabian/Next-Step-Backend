@@ -8,10 +8,12 @@ This stores scheduling information for each department:
 - Current status (Active, Draft, Archived)
 """
 
-from sqlalchemy import String, Integer, DateTime, func, Index
-from sqlalchemy.orm import Mapped, mapped_column
-from app.database import Base
 from datetime import datetime
+
+from sqlalchemy import DateTime, Index, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
 
 
 class Schedule(Base):

@@ -10,8 +10,10 @@ Why Pydantic Settings?
 - Raises errors if required variables are missing
 """
 
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import Literal
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -20,6 +22,22 @@ class Settings(BaseSettings):
     # App Info
     app_name: str = "Next Step API"
     debug: bool = False  # False by default for safety
+    environment: Literal["development", "staging", "production"] = "development"
+
+    # CORS — comma-separated list of allowed frontend origins.
+    # Example: "https://app.example.com,https://admin.example.com"
+    allowed_origins: str = (
+        "http://localhost:8081,http://127.0.0.1:8081,"
+        "http://localhost:19006,http://127.0.0.1:19006"
+    )
+
+    # Sentry — leave empty to disable error tracking (e.g. local dev).
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.1
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     # Database Configuration
     # Format: postgresql+asyncpg://user:password@host:port/database_name
@@ -54,7 +72,7 @@ class Settings(BaseSettings):
     # frontend_url: base URL used to build invite links in emails
     mail_username: str = ""
     mail_password: str = ""
-    mail_from: str = ""        # defaults to mail_username if empty
+    mail_from: str = ""  # defaults to mail_username if empty
     mail_from_name: str = "Next Step"
     frontend_url: str = "http://localhost:8081"
 

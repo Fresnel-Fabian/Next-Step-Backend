@@ -11,8 +11,9 @@ Endpoints:
 - PATCH /api/v1/polls/{id}/close
 """
 
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class PollOptionInput(BaseModel):
@@ -25,6 +26,7 @@ class PollOptionInput(BaseModel):
         "text": "Pizza"
     }
     """
+
     id: int
     text: str
 
@@ -41,6 +43,7 @@ class PollOptionResponse(BaseModel):
         "percentage": 45.5
     }
     """
+
     id: int
     text: str
     votes: int = 0
@@ -65,6 +68,7 @@ class PollCreate(BaseModel):
         "expires_at": "2024-12-31T23:59:59Z"
     }
     """
+
     title: str
     description: str | None = None
     options: list[PollOptionInput]
@@ -91,6 +95,7 @@ class PollResponse(BaseModel):
     Schema for poll in API responses.
     Includes calculated vote percentages for each option.
     """
+
     id: int
     title: str
     description: str | None
@@ -114,6 +119,7 @@ class VoteRequest(BaseModel):
         "option_id": 2
     }
     """
+
     option_id: int
 
     model_config = {"json_schema_extra": {"example": {"option_id": 2}}}
@@ -121,11 +127,13 @@ class VoteRequest(BaseModel):
 
 # ── Admin-only schemas ───────────────────────────────────────────
 
+
 class VoterDetail(BaseModel):
     """
     Individual voter info.
     Only exposed to admin via GET /api/v1/polls/{id}/results
     """
+
     user_id: int
     user_name: str
     option_id: int
@@ -138,6 +146,7 @@ class PollResultsResponse(BaseModel):
     Full poll results with voter breakdown.
     Admin only.
     """
+
     poll_id: int
     title: str
     total_votes: int

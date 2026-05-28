@@ -12,24 +12,25 @@ Endpoints:
 - DELETE /api/v1/polls/{id}             - Delete poll (admin only)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies import get_current_user, require_admin, require_roles
+from app.models import Poll, PollVote, User
+from app.models.user import UserRole
 from app.schemas.poll import (
     PollCreate,
-    PollResponse,
     PollOptionResponse,
-    VoteRequest,
+    PollResponse,
     PollResultsResponse,
     VoterDetail,
+    VoteRequest,
 )
-from app.dependencies import get_current_user, require_admin, require_roles
-from app.models import User, Poll, PollVote
-from app.models.user import UserRole
 from app.services.activity import log_activity
 from app.services.notifications import broadcast_to_all
 
@@ -86,9 +87,9 @@ async def list_polls(
     query = query.order_by(Poll.created_at.desc())
     result = await db.execute(query)
     polls = result.scalars().all()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for poll in polls:
-        if poll.is_active and poll.expires_at and poll.expires_at.replace(tzinfo=timezone.utc) < now:
+        if poll.is_active and poll.expires_at and poll.expires_at.replace(tzinfo=UTC) < now:
             poll.is_active = False
     await db.commit()
 
@@ -105,9 +106,7 @@ async def get_poll(
     poll = result.scalar_one_or_none()
 
     if not poll:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found")
 
     return await build_poll_response(db, poll)
 
@@ -136,7 +135,7 @@ async def create_poll(
     await broadcast_to_all(
         db,
         title=f"New Poll: {data.title}",
-        message=data.description or f"A new poll has been created. Cast your vote now.",
+        message=data.description or "A new poll has been created. Cast your vote now.",
         notification_type="info",
         entity_type="poll",
     )
@@ -167,24 +166,16 @@ async def vote_on_poll(
     poll = result.scalar_one_or_none()
 
     if not poll:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found")
 
     if not poll.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Poll is closed"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Poll is closed")
 
-    if poll.expires_at and poll.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Poll has expired"
-        )
+    if poll.expires_at and poll.expires_at < datetime.now(UTC):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Poll has expired")
 
     existing_vote = await db.execute(
-        select(PollVote).where(
-            PollVote.poll_id == poll_id, PollVote.user_id == current_user.id
-        )
+        select(PollVote).where(PollVote.poll_id == poll_id, PollVote.user_id == current_user.id)
     )
     if existing_vote.scalar_one_or_none():
         raise HTTPException(
@@ -194,9 +185,7 @@ async def vote_on_poll(
 
     valid_option_ids = [o["id"] for o in poll.options.get("options", [])]
     if data.option_id not in valid_option_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid option"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid option")
 
     vote = PollVote(poll_id=poll_id, user_id=current_user.id, option_id=data.option_id)
     db.add(vote)
@@ -215,9 +204,7 @@ async def get_poll_results(
     poll = result.scalar_one_or_none()
 
     if not poll:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found")
 
     option_map = {o["id"]: o["text"] for o in poll.options.get("options", [])}
 
@@ -261,9 +248,7 @@ async def close_poll(
     poll = result.scalar_one_or_none()
 
     if not poll:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found")
 
     if not poll.is_active:
         raise HTTPException(
@@ -295,9 +280,7 @@ async def delete_poll(
     poll = result.scalar_one_or_none()
 
     if not poll:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found")
 
     await db.delete(poll)
 
@@ -312,6 +295,7 @@ async def delete_poll(
 
     await db.commit()
     return {"message": "Poll deleted successfully"}
+
 
 class UpdateExpiryRequest(BaseModel):
     expires_at: datetime

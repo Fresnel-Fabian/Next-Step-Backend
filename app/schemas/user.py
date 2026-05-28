@@ -6,6 +6,7 @@ Separates what we receive (Create/Update) from what we send (Response).
 """
 
 from pydantic import BaseModel, EmailStr
+
 from app.models.user import UserRole
 
 
@@ -69,9 +70,7 @@ class UserUpdate(BaseModel):
     department: str | None = None
 
     model_config = {
-        "json_schema_extra": {
-            "example": {"name": "John Smith", "department": "Mathematics"}
-        }
+        "json_schema_extra": {"example": {"name": "John Smith", "department": "Mathematics"}}
     }
 
 

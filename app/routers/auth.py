@@ -12,11 +12,13 @@ ref: https://developers.google.com/identity/protocols/oauth2/native-app
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.schemas.auth import LoginRequest, GoogleAuthRequest
+from app.dependencies import get_current_user
+from app.models.user import User
+from app.schemas.auth import GoogleAuthRequest, LoginRequest
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import (
     authenticate_user,
@@ -24,12 +26,10 @@ from app.services.auth import (
     hash_password,
 )
 from app.services.google_auth import (
+    GoogleAuthError,
     exchange_google_code,
     get_or_create_google_user,
-    GoogleAuthError,
 )
-from app.dependencies import get_current_user
-from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
@@ -104,7 +104,7 @@ async def google_auth(request: GoogleAuthRequest, db: AsyncSession = Depends(get
             redirect_uri=request.redirect_uri,
         )
     except GoogleAuthError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
 
     user = await get_or_create_google_user(db, google_data)
     token = create_access_token(data={"sub": str(user.id)})
@@ -112,9 +112,7 @@ async def google_auth(request: GoogleAuthRequest, db: AsyncSession = Depends(get
 
 
 # POST /api/v1/auth/register
-@router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """
         Register a new user account.

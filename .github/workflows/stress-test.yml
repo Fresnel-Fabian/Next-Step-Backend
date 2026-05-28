@@ -1,0 +1,55 @@
+name: Stress test (staging)
+
+# Dispatch-only until staging is set up. Once STAGING_URL secret exists and
+# the staging environment is stable, uncomment the schedule block below to
+# run nightly. Do NOT run on PRs — too slow and meaningless against ephemeral.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Override staging URL (default: STAGING_URL secret)"
+        required: false
+        type: string
+  # schedule:
+  #   - cron: '0 3 * * *'   # nightly 03:00 UTC
+
+concurrency:
+  group: stress-test
+  cancel-in-progress: false
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify staging URL is configured
+        run: |
+          URL="${{ inputs.base_url || secrets.STAGING_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::No staging URL. Set the STAGING_URL secret or pass base_url input."
+            exit 1
+          fi
+          echo "BASE_URL=$URL" >> $GITHUB_ENV
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 stress test
+        run: k6 run loadtests/scenarios/dashboard_flow.js
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          PROFILE: stress
+          TEST_USER: ${{ secrets.STAGING_TEST_USER }}
+          TEST_PASS: ${{ secrets.STAGING_TEST_PASS }}
+
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-stress-summary
+          path: summary.json
+          if-no-files-found: warn

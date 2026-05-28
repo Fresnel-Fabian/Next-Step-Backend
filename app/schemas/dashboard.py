@@ -3,8 +3,9 @@
 Dashboard schemas for stats and activity feed.
 """
 
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class DashboardStats(BaseModel):

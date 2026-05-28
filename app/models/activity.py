@@ -9,10 +9,12 @@ Tracks actions like:
 - Users joined
 """
 
-from sqlalchemy import String, DateTime, func, Integer
-from sqlalchemy.orm import Mapped, mapped_column
-from app.database import Base
 from datetime import datetime
+
+from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
 
 
 class Activity(Base):
@@ -58,6 +60,4 @@ class Activity(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<Activity(id={self.id}, title={self.title}, action={self.action_type})>"
-        )
+        return f"<Activity(id={self.id}, title={self.title}, action={self.action_type})>"

@@ -10,14 +10,14 @@ Endpoints:
 - DELETE /api/v1/schedules/{id}     - Delete schedule (admin)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.schemas.schedule import ScheduleCreate, ScheduleUpdate, ScheduleResponse
 from app.dependencies import get_current_user, require_admin
-from app.models import User, Schedule
+from app.models import Schedule, User
+from app.schemas.schedule import ScheduleCreate, ScheduleResponse, ScheduleUpdate
 from app.services.activity import log_activity
 
 router = APIRouter(prefix="/api/v1/schedules", tags=["Schedules"])
@@ -26,9 +26,7 @@ router = APIRouter(prefix="/api/v1/schedules", tags=["Schedules"])
 @router.get("", response_model=list[ScheduleResponse])
 async def list_schedules(
     search: str | None = Query(None, description="Search by department name"),
-    status: str | None = Query(
-        None, description="Filter by status (Active, Draft, Archived)"
-    ),
+    status: str | None = Query(None, description="Filter by status (Active, Draft, Archived)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -82,9 +80,7 @@ async def get_schedule(
     schedule = result.scalar_one_or_none()
 
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
 
     return ScheduleResponse.from_schedule(schedule)
 
@@ -155,9 +151,7 @@ async def update_schedule(
     schedule = result.scalar_one_or_none()
 
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
 
     # Update only provided fields
     if data.department is not None:
@@ -203,9 +197,7 @@ async def delete_schedule(
     schedule = result.scalar_one_or_none()
 
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
 
     department = schedule.department  # Save for activity log
 

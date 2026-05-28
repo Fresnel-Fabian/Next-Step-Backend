@@ -1,0 +1,56 @@
+name: Soak test (staging)
+
+# Dispatch-only until staging is set up. Once STAGING_URL secret exists, flip
+# the schedule block on to run weekly. Soak runs are ~3h+ — never on PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Override staging URL (default: STAGING_URL secret)"
+        required: false
+        type: string
+  # schedule:
+  #   - cron: '0 1 * * SAT'   # Saturday 01:00 UTC — off-peak
+
+concurrency:
+  group: soak-test
+  cancel-in-progress: false
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    # Cap at 6h. The soak profile is ~3h10m of actual VU time; the cap
+    # protects against runaway runs if the threshold logic stalls.
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify staging URL is configured
+        run: |
+          URL="${{ inputs.base_url || secrets.STAGING_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::No staging URL. Set the STAGING_URL secret or pass base_url input."
+            exit 1
+          fi
+          echo "BASE_URL=$URL" >> $GITHUB_ENV
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 soak test
+        run: k6 run loadtests/scenarios/dashboard_flow.js
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          PROFILE: soak
+          TEST_USER: ${{ secrets.STAGING_TEST_USER }}
+          TEST_PASS: ${{ secrets.STAGING_TEST_PASS }}
+
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-soak-summary
+          path: summary.json
+          if-no-files-found: warn

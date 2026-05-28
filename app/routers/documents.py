@@ -13,15 +13,16 @@ Endpoints:
 
 import os
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.schemas.document import DocumentCreate, DocumentResponse
 from app.dependencies import get_current_user, require_admin, require_roles
-from app.models import User, Document, Announcement
+from app.models import Announcement, Document, User
 from app.models.user import UserRole
+from app.schemas.document import DocumentCreate, DocumentResponse
 from app.services.activity import log_activity
 from app.services.notifications import broadcast_to_all
 
@@ -100,9 +101,7 @@ async def get_document(
     document = result.scalar_one_or_none()
 
     if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     return DocumentResponse.from_document(document)
 
@@ -113,8 +112,8 @@ async def upload_file(
     file: UploadFile = File(...),
     _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
 ):
-    allowed_extensions = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png'}
-    ext = os.path.splitext(file.filename or '')[1].lower()
+    allowed_extensions = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"}
+    ext = os.path.splitext(file.filename or "")[1].lower()
 
     if ext not in allowed_extensions:
         raise HTTPException(
@@ -190,9 +189,7 @@ async def delete_document(
     document = result.scalar_one_or_none()
 
     if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     title = document.title
 

@@ -1,0 +1,39 @@
+name: Docker build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: next-step-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test image
+        run: |
+          docker run --rm \
+            -e DATABASE_URL=postgresql+asyncpg://stub:stub@localhost/stub \
+            -e SECRET_KEY=ci-smoke-test-only \
+            next-step-backend:ci \
+            python -c "import app.main; print('import ok')"

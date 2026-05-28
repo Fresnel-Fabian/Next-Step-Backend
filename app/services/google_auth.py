@@ -4,11 +4,13 @@ Google OAuth service — PKCE authorization code exchange.
 """
 
 import logging
+
 import httpx
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import get_settings
 from app.models.user import User, UserRole
 
@@ -76,9 +78,7 @@ async def exchange_google_code(
                 f"for client {web_client_id!r}."
             )
 
-        raise GoogleAuthError(
-            f"Google token exchange failed ({error_code}): {error_desc}"
-        )
+        raise GoogleAuthError(f"Google token exchange failed ({error_code}): {error_desc}")
 
     token_data = resp.json()
 
@@ -120,47 +120,10 @@ async def exchange_google_code(
 
 async def get_or_create_google_user(db: AsyncSession, google_data: dict) -> User:
     """Find existing user or create new one from Google data."""
-    result = await db.execute(
-        select(User).where(User.google_id == google_data["google_id"])
-    )
-    user = result.scalar_one_or_none()
-    if user:
-        await db.commit()
-        await db.refresh(user)
-        return user
-
-    result = await db.execute(select(User).where(User.email == google_data["email"]))
-    user = result.scalar_one_or_none()
-    if user:
-        user.google_id = google_data["google_id"]
-        if not user.avatar and google_data.get("avatar"):
-            user.avatar = google_data["avatar"]
-        await db.commit()
-        await db.refresh(user)
-        return user
-
-    user = User(
-        email=google_data["email"],
-        name=google_data["name"],
-        google_id=google_data["google_id"],
-        avatar=google_data.get("avatar"),
-        role=UserRole.ADMIN,  # TODO: CHANGE THIS LATER
-        hashed_password=None,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-async def get_or_create_google_user(db: AsyncSession, google_data: dict) -> User:
-    """Find existing user or create new one from Google data."""
     from app.models.invitation import Invitation, InvitationStatus
 
     # 1. Find by google_id
-    result = await db.execute(
-        select(User).where(User.google_id == google_data["google_id"])
-    )
+    result = await db.execute(select(User).where(User.google_id == google_data["google_id"]))
     user = result.scalar_one_or_none()
     if user:
         await db.commit()

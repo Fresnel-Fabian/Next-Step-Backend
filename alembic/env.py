@@ -3,12 +3,13 @@ from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
 from alembic import context
+from app.config import get_settings
 
 # Import Base and all models so Alembic can detect table changes
 from app.database import Base
 from app.models import *  # noqa - must import all models
-from app.config import get_settings
 
 # Alembic Config object
 config = context.config

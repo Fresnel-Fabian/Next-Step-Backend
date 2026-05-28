@@ -1,24 +1,24 @@
 # app/routers/invitations.py
 import csv
 import io
-import secrets
-import aiosmtplib
 import logging
+import secrets
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+import aiosmtplib
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
 from app.dependencies import require_admin
-from app.models import User, Invitation
+from app.models import Invitation, User
 from app.models.invitation import InvitationStatus
 from app.models.user import UserRole
-from app.schemas.invitation import InviteRequest, InvitationResponse, BulkInviteResponse
-from app.config import get_settings
+from app.schemas.invitation import BulkInviteResponse, InvitationResponse, InviteRequest
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -170,7 +170,9 @@ async def invite_user(
 @router.post("/invite/bulk", response_model=BulkInviteResponse, status_code=status.HTTP_201_CREATED)
 async def invite_bulk(
     file: UploadFile = File(..., description="CSV file with one email per row"),
-    role: UserRole = Query(UserRole.STUDENT, description="Role for all invited users: STUDENT or TEACHER"),
+    role: UserRole = Query(
+        UserRole.STUDENT, description="Role for all invited users: STUDENT or TEACHER"
+    ),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -241,6 +243,7 @@ async def invite_bulk(
 
     return BulkInviteResponse(invited=invited, skipped=skipped, failed=failed)
 
+
 @router.get("/validate")
 async def validate_invite(
     token: str = Query(...),
@@ -276,6 +279,7 @@ async def list_invitations(
 
     result = await db.execute(query)
     return [to_response(i) for i in result.scalars().all()]
+
 
 @router.delete("/{invitation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_invitation(
