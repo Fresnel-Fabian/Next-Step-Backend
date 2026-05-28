@@ -6,20 +6,6 @@ from contextlib import asynccontextmanager
 import sentry_sdk
 from fastapi import FastAPI, status
 from fastapi import HTTPException as FastAPIHTTPException
-from app.database import engine, Base
-from app.config import get_settings
-from app.routers import (
-    auth,
-    users,
-    dashboard,
-    schedules,
-    schedule_events,
-    documents,
-    polls,
-    notifications,
-    announcements,
-    invitations    
-)
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -35,6 +21,7 @@ from app.routers import (
     auth,
     dashboard,
     documents,
+    invitations,
     notifications,
     polls,
     schedule_events,

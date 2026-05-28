@@ -1,5 +1,5 @@
 # app/routers/dashboard.py
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
-from app.models import Activity, User, ScheduleEvent, Poll
-from app.schemas.dashboard import ActivityItem, DashboardStats
+from app.models import Activity, Poll, ScheduleEvent, User
 from app.models.user import UserRole
+from app.schemas.dashboard import ActivityItem, DashboardStats
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -51,9 +51,7 @@ async def get_stats(
     )
 
     # Active Polls
-    active_polls = await db.scalar(
-        select(func.count(Poll.id)).where(Poll.is_active == True)
-    )
+    active_polls = await db.scalar(select(func.count(Poll.id)).where(Poll.is_active == True))
 
     return DashboardStats(
         totalTeachers=total_teachers or 0,

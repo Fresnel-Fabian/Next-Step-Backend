@@ -16,7 +16,9 @@ TEACHER = {"email": "teacher@school.edu", "password": "teacherpass123", "role": 
 STUDENT = {"email": "student@school.edu", "password": "studentpass123", "role": "STUDENT"}
 
 
-def _register_user(client: httpx.AsyncClient, name: str, email: str, password: str, department: str, role: str):
+def _register_user(
+    client: httpx.AsyncClient, name: str, email: str, password: str, department: str, role: str
+):
     return client.post(
         f"{BASE_URL}/api/v1/auth/register",
         json={
