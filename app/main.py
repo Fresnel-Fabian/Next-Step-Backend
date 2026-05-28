@@ -18,6 +18,7 @@ from app.routers import (
     polls,
     notifications,
     announcements,
+    invitations    
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -136,6 +137,7 @@ app.include_router(documents.router)
 app.include_router(polls.router)
 app.include_router(notifications.router)
 app.include_router(announcements.router)
+app.include_router(invitations.router)
 
 
 @app.get("/health", tags=["Health"])
